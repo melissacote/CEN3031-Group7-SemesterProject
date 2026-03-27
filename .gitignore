@@ -1,0 +1,15 @@
+# Database file
+*.db
+
+# Cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+env/
+
+# IDE settings, should cover Pycharm and VSCode, add others if needed
+.idea/
+.vscode/
