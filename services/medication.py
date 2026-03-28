@@ -1,4 +1,5 @@
 # Medication database operations
+from datetime import datetime
 from database.db_connection import get_connection
 
 # ADDED BY NC: Implement adding medications in database
@@ -22,3 +23,39 @@ def get_todays_medications_sorted(user_id):
             ORDER BY scheduled_time ASC
         ''', (user_id,))
         return cursor.fetchall()
+    
+# ADDED BY NC: Log when a medication is taken
+def log_medication_taken(user_id, med_id):
+    # Get current date and time
+    date_taken = datetime.now().strftime("%Y-%m-%d")
+    time_taken = datetime.now().strftime("%H:%M:%S")
+    
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO administration_log (user_id, medication_id, date_taken, time_taken, status, notes) 
+            VALUES (?, ?, ?, ?, 1, '')
+        ''', (user_id, med_id, date_taken, time_taken))
+        conn.commit()
+
+# ADDED BY NC: Undo marking a medication as taken
+def undo_medication_taken(user_id, med_id):
+    date_today = datetime.now().strftime("%Y-%m-%d")
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Find the single most recent log entry for this medication today
+        cursor.execute('''
+            SELECT log_id FROM administration_log 
+            WHERE user_id=? AND medication_id=? AND date_taken=?
+            ORDER BY time_taken DESC LIMIT 1
+        ''', (user_id, med_id, date_today))
+        
+        result = cursor.fetchone()
+        if result:
+            log_id = result[0]
+            # Delete that specific timestamp log
+            cursor.execute("DELETE FROM administration_log WHERE log_id=?", (log_id,))
+            conn.commit()
+            return True # Successfully undone
+        return False # Nothing to undo
