@@ -43,7 +43,6 @@ class DosageTrackingScreen(QWidget):
     def load_medications(self):
         self.tracking_list.clear()
         
-        # Execute the query you wrote in services/medication.py!
         meds = get_todays_medications_sorted(self.user_id)
         
         if not meds:
