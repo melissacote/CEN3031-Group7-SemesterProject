@@ -63,16 +63,18 @@ class LoginWindow(QWidget):
         btn_layout.setSpacing(15)
 
         login_btn = QPushButton("Login")
+        login_btn.setFixedHeight(50) 
         login_btn.setStyleSheet("""
-            QPushButton { background-color: #27ae60; color: white; padding: 14px; 
+            QPushButton { background-color: #27ae60; color: white;
                           font-size: 16px; border-radius: 8px; font-weight: bold; }
             QPushButton:hover { background-color: #2ecc71; }
         """)
         login_btn.clicked.connect(self.handle_login)
 
         create_btn = QPushButton("Create New Account")
+        create_btn.setFixedHeight(50)
         create_btn.setStyleSheet("""
-            QPushButton { background-color: #3498db; color: white; padding: 14px; 
+            QPushButton { background-color: #3498db; color: white;
                           font-size: 16px; border-radius: 8px; }
             QPushButton:hover { background-color: #5dade2; }
         """)
@@ -99,8 +101,7 @@ class LoginWindow(QWidget):
         else:
             QMessageBox.critical(
                 self, "Login Failed",
-                "Invalid username or password.\n\n"
-                "Default demo account:\nUsername: admin\nPassword: password"
+                "Invalid username or password. Please try again."
             )
 
     def show_register_dialog(self) -> None:

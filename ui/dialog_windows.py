@@ -121,10 +121,13 @@ class ExportDialog(QDialog):
             return
 
         try:
-            # Combine profile + medications into one DataFrame
-            df_profile = pd.DataFrame([self.profile])
+            # Build separate dfs for profile data and medication data
+            df_profile = pd.DataFrame([
+                {"first_name": self.profile.get("first_name"),
+                 "last_name": self.profile.get("last_name"),
+                 "date_of_birth": self.profile.get("date_of_birth")
+                 }])
             df_meds = pd.DataFrame(self.medications)
-            df_meds["username"] = self.username
 
             with open(filename, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
