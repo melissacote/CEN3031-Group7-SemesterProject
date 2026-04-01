@@ -1,2 +1,6 @@
 PyQt6==6.10.2
+pandas
+reportlab
+matplotlib
+numpy
 argon2-cffi
