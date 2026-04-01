@@ -23,15 +23,22 @@ class DosageTrackingScreen(QWidget):
         None
     """
 
-    def __init__(self, user_id):
+    def __init__(self, user_id, go_back_callback=None):
         # Call init function of parent class
         super().__init__()
 
         self.user_id = user_id
+        self.go_back_callback = go_back_callback
         self.large_font = QFont("Arial", 16)
         self.setFont(self.large_font)
 
         self.layout = QVBoxLayout()
+
+        self.back_btn = QPushButton("← Back to Dashboard")
+        self.back_btn.setMinimumHeight(40)
+        self.back_btn.setStyleSheet("background-color: #7f8c8d; color: white; border-radius: 5px; font-weight: bold;")
+        self.back_btn.clicked.connect(self.handle_back)
+        self.layout.addWidget(self.back_btn)
 
         self.title_label = QLabel("Today's Dosage Tracker")
         self.title_label.setFont(QFont("Arial", 20, QFont.Weight.Bold))
@@ -57,6 +64,11 @@ class DosageTrackingScreen(QWidget):
         self.setLayout(self.layout)
 
         self.load_medications()
+    
+    def handle_back(self):
+        # Triggers the callback to return to the main dashboard.
+        if self.go_back_callback:
+            self.go_back_callback()
 
     def load_medications(self):
         self.tracking_list.clear()
@@ -81,7 +93,7 @@ class DosageTrackingScreen(QWidget):
         selected_item = self.tracking_list.currentItem()
         if selected_item:
             # Prevent double-logging if it already has a checkmark
-            if "test_checkmark" in selected_item.text():
+            if "✅" in selected_item.text():
                 QMessageBox.information(self, "Already Taken", "This medication is already marked as taken.")
                 return
 
@@ -89,7 +101,7 @@ class DosageTrackingScreen(QWidget):
             log_medication_taken(self.user_id, med_id)
 
             # Add a visual checkmark instead of deleting the item
-            selected_item.setText(selected_item.text() + " test_checkmark")
+            selected_item.setText(selected_item.text() + " ✅")
         else:
             QMessageBox.warning(self, "Selection Error", "Please click a medication first.")
 
@@ -103,7 +115,7 @@ class DosageTrackingScreen(QWidget):
 
             if success:
                 # Remove the visual checkmark
-                new_text = selected_item.text().replace(" test_checkmark", "")
+                new_text = selected_item.text().replace(" ✅", "")
                 selected_item.setText(new_text)
                 QMessageBox.information(self, "Undo Success", "Medication administration undone.")
             else:

@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import numpy as np
 
-from database.db_connection import get_user_profile, get_user_medications
+from database.db_connection import get_user_profile, get_user_medications, get_user_id
 from ui.dialog_windows import ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow
 from ui.tracking_screen import DosageTrackingScreen
 
@@ -40,6 +40,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.tracking_widget = None
         self.current_user = username
+        self.current_user_id = get_user_id(username)
         self.setWindowTitle(f"MedRec 1.0.0 Dashboard - {username}")
         self.resize(1350, 850)
 
@@ -91,8 +92,8 @@ class MainWindow(QMainWindow):
         toolbar.addAction(profile_act)
 
     def launch_dosage_tracker(self, user_id):
-        # Pass the ID to the UI so it queries the right data
-        self.tracking_widget = DosageTrackingScreen(user_id)
+        # Pass the setup_central_widget function so the tracking screen can return to the dashboard
+        self.tracking_widget = DosageTrackingScreen(user_id, go_back_callback=self.setup_central_widget)
         self.setCentralWidget(self.tracking_widget)
 
     def setup_central_widget(self) -> None:
@@ -128,6 +129,12 @@ class MainWindow(QMainWindow):
         scan_btn = QPushButton("📷 Scan Medication")
         scan_btn.setStyleSheet("padding: 14px; text-align: left;")
         layout.addWidget(scan_btn)
+
+        # Dosage Tracker
+        track_btn = QPushButton("💊 Daily Dosage Tracker")
+        track_btn.setStyleSheet("padding: 14px; text-align: left;")
+        track_btn.clicked.connect(lambda: self.launch_dosage_tracker(self.current_user_id))
+        layout.addWidget(track_btn)
 
         # Generate Report
         report_btn = QPushButton("📄 Generate Report")

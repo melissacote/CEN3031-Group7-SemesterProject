@@ -85,7 +85,7 @@ def get_user_id(username: str) -> int | None:
     try:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
         row = cursor.fetchone()
         conn.close()
         return row[0] if row else None
