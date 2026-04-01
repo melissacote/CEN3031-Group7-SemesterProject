@@ -31,7 +31,7 @@ def create_tables():
                 address TEXT,
                 email TEXT,
                 phone TEXT,
-                created at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         '''
         cursor.execute(create_users)
