@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import numpy as np
 
-from database.db_connection import get_user_profile, get_user_medications, get_user_id
+from services.medication import get_user_medications
+from services.user import get_user_id, get_user_profile
 from ui.dialog_windows import ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow
 from ui.tracking_screen import DosageTrackingScreen
 

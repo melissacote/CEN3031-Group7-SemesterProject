@@ -1,15 +1,97 @@
 # User database operations
-from datetime import datetime
+import sqlite3
+
+from database.db_connection import DB_NAME
+from utils.password import verify_password, hash_password
 
 
-class User:
-    def __init__(self, id, username, first_name, last_name, phone_number, address, email = None):
-        """Initialize new user"""
-        self.id: int = id
-        self.username: str = username
-        self.first_name: str = first_name
-        self.last_name: str = last_name
-        self.phone_number: int = phone_number
-        self.address: str = address
-        self.email: str | None = email
-        self.created_at: datetime = datetime.now()
+def get_user_id(username: str) -> int | None:
+    """Return user ID for a given username."""
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else None
+    except Exception:
+        return None
+
+
+def get_user_profile(username: str) -> dict | None:
+    """Return full user profile as dictionary."""
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        if row:
+            columns = [desc[0] for desc in cursor.description]
+            conn.close()
+            return dict(zip(columns, row))
+        conn.close()
+        return None
+    except Exception:
+        return None
+
+
+def verify_user(username: str, password: str) -> bool:
+    """
+    Verify if the provided username and password match a record in the database.
+
+    Args:
+        username: The username to check
+        password: The password to verify
+
+    Returns:
+        True if credentials are valid, False otherwise
+    """
+    if not username or not password:
+        return False
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
+        result = cursor.fetchone()
+        conn.close()
+        return result and verify_password(result[0], password)
+    except Exception:
+        return False
+
+
+def create_new_user(user_data: dict) -> bool:
+    """
+    Create a new user record in the database with all registration fields.
+
+    Args:
+        user_data: Dictionary containing user registration information
+
+    Returns:
+        True if user was created successfully, False if username already exists or error occurred
+    """
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        hashed_password = hash_password(user_data['password'])
+
+        cursor.execute('''
+            INSERT INTO users (
+                username, password, first_name, last_name, date_of_birth
+            ) VALUES (?, ?, ?, ?, ?)
+        ''', (
+            user_data['username'],
+            hashed_password,
+            user_data.get('first_name'),
+            user_data.get('last_name'),
+            user_data.get('date_of_birth')
+        ))
+
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        # Username already exists
+        return False
+    except Exception as e:
+        print(f"Database error during user creation: {e}")
+        return False
