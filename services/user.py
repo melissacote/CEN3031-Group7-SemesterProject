@@ -1,19 +1,18 @@
 # User database operations
 import sqlite3
 
-from database.db_connection import DB_NAME
+from database.db_connection import get_connection
 from utils.password import verify_password, hash_password
 
 
 def get_user_id(username: str) -> int | None:
     """Return user ID for a given username."""
     try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
-        row = cursor.fetchone()
-        conn.close()
-        return row[0] if row else None
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
+            row = cursor.fetchone()
+            return row[0] if row else None
     except Exception:
         return None
 
@@ -21,16 +20,14 @@ def get_user_id(username: str) -> int | None:
 def get_user_profile(username: str) -> dict | None:
     """Return full user profile as dictionary."""
     try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-        row = cursor.fetchone()
-        if row:
-            columns = [desc[0] for desc in cursor.description]
-            conn.close()
-            return dict(zip(columns, row))
-        conn.close()
-        return None
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+            row = cursor.fetchone()
+            if row:
+                columns = [desc[0] for desc in cursor.description]
+                return dict(zip(columns, row))
+            return None
     except Exception:
         return None
 
@@ -49,12 +46,11 @@ def verify_user(username: str, password: str) -> bool:
     if not username or not password:
         return False
     try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
-        result = cursor.fetchone()
-        conn.close()
-        return result and verify_password(result[0], password)
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
+            result = cursor.fetchone()
+            return result and verify_password(result[0], password)
     except Exception:
         return False
 
@@ -70,25 +66,24 @@ def create_new_user(user_data: dict) -> bool:
         True if user was created successfully, False if username already exists or error occurred
     """
     try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        hashed_password = hash_password(user_data['password'])
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            hashed_password = hash_password(user_data['password'])
 
-        cursor.execute('''
-            INSERT INTO users (
-                username, password, first_name, last_name, date_of_birth
-            ) VALUES (?, ?, ?, ?, ?)
-        ''', (
-            user_data['username'],
-            hashed_password,
-            user_data.get('first_name'),
-            user_data.get('last_name'),
-            user_data.get('date_of_birth')
-        ))
+            cursor.execute('''
+                INSERT INTO users (
+                    username, password, first_name, last_name, date_of_birth
+                ) VALUES (?, ?, ?, ?, ?)
+            ''', (
+                user_data['username'],
+                hashed_password,
+                user_data.get('first_name'),
+                user_data.get('last_name'),
+                user_data.get('date_of_birth')
+            ))
 
-        conn.commit()
-        conn.close()
-        return True
+            conn.commit()
+            return True
     except sqlite3.IntegrityError:
         # Username already exists
         return False
