@@ -26,11 +26,6 @@ def create_tables():
                 first_name TEXT,
                 last_name TEXT,
                 date_of_birth TEXT,
-                ssn_last4 TEXT,
-                gender TEXT,
-                address TEXT,
-                email TEXT,
-                phone TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         '''
@@ -170,20 +165,14 @@ def create_new_user(user_data: dict) -> bool:
 
         cursor.execute('''
             INSERT INTO users (
-                username, password, first_name, last_name, date_of_birth,
-                ssn_last4, gender, address, email, phone
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                username, password, first_name, last_name, date_of_birth
+            ) VALUES (?, ?, ?, ?, ?)
         ''', (
             user_data['username'],
             user_data['password'],
             user_data.get('first_name'),
             user_data.get('last_name'),
-            user_data.get('date_of_birth'),
-            user_data.get('ssn_last4'),
-            user_data.get('gender'),
-            user_data.get('address'),
-            user_data.get('email'),
-            user_data.get('phone')
+            user_data.get('date_of_birth')
         ))
 
         conn.commit()

@@ -31,12 +31,7 @@ class ProfileWindow(QDialog):
 
         info = [
             ("Username", profile['username']),
-            ("Date of Birth", profile['date_of_birth'] or "—"),
-            ("Gender", profile['gender'] or "—"),
-            ("Phone", profile['phone'] or "—"),
-            ("Address", profile['address'] or "—"),
-            ("Email", profile['email'] or "—"),
-            ("SSN Last 4", profile['ssn_last4'] or "—")
+            ("Date of Birth", profile['date_of_birth'] or "—")
         ]
 
         for label, value in info:
