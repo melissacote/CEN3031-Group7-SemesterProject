@@ -1,6 +1,9 @@
 # Medication database operations
+import sqlite3
 from datetime import datetime
-from database.db_connection import get_connection
+from database.db_connection import get_connection, DB_NAME
+from services.user import get_user_id
+
 
 # ADDED BY NC: Implement adding medications in database
 def add_medication(user_id, medication_name, dosage, route, frequency, scheduled_time, prescriber="", special_instructions=""):
@@ -59,3 +62,24 @@ def undo_medication_taken(user_id, med_id):
             conn.commit()
             return True # Successfully undone
         return False # Nothing to undo
+
+
+def get_user_medications(username: str) -> list[dict]:
+    """Return list of medication dictionaries for the user."""
+    user_id = get_user_id(username)
+    if not user_id:
+        return []
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT medication_name, dosage, frequency, start_date, notes
+            FROM medications
+            WHERE user_id = ?
+            ORDER BY start_date DESC
+        """, (user_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(zip(["name", "dosage", "frequency", "start_date", "notes"], row)) for row in rows]
+    except Exception:
+        return []

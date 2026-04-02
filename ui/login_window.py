@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QDate, QRegularExpression
 from PyQt6.QtGui import QRegularExpressionValidator
 from ui.main_window import MainWindow
-from database.db_connection import verify_user, create_new_user
+from services.user import verify_user, create_new_user
 
 
 class LoginWindow(QWidget):
