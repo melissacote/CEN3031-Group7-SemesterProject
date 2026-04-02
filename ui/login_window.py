@@ -7,14 +7,12 @@ Contains LoginWindow and RegisterDialog classes with comprehensive input validat
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QMessageBox, QDialog, QFormLayout, QComboBox,
-    QDateEdit
+    QPushButton, QMessageBox, QDialog, QFormLayout, QDateEdit
 )
 from PyQt6.QtCore import Qt, QDate, QRegularExpression
 from PyQt6.QtGui import QRegularExpressionValidator
 from ui.main_window import MainWindow
 from database.db_connection import verify_user, create_new_user
-import re
 
 
 class LoginWindow(QWidget):
@@ -121,15 +119,14 @@ class RegisterDialog(QDialog):
     Validates:
     - First/Last names contain only letters and spaces
     - Age between 18 and 110
-    - SSN last 4 digits are numeric and exactly 4 characters
-    - Basic email format
+    - Password is at least 10 characters long
     """
 
     def __init__(self, parent=None):
         """Initialize the registration form with validators."""
         super().__init__(parent)
         self.setWindowTitle("Create New Account")
-        self.setFixedSize(540, 680)
+        self.setFixedSize(540, 400)
 
         layout = QFormLayout()
         layout.setSpacing(14)
@@ -153,31 +150,12 @@ class RegisterDialog(QDialog):
         self.dob.setCalendarPopup(True)
         self.dob.setDate(QDate.currentDate().addYears(-30))
 
-        self.ssn_last4 = QLineEdit()
-        self.ssn_last4.setMaxLength(4)
-        self.ssn_last4.setPlaceholderText("1234")
-        # Numbers only for SSN
-        ssn_regex = QRegularExpression(r"^\d{0,4}$")
-        self.ssn_last4.setValidator(QRegularExpressionValidator(ssn_regex))
-
-        self.gender = QComboBox()
-        self.gender.addItems(["", "Male", "Female"])
-
-        self.address = QLineEdit()
-        self.email = QLineEdit()
-        self.phone = QLineEdit()
-
         # Add fields to form
         layout.addRow("Username *:", self.username)
         layout.addRow("Password *:", self.password)
         layout.addRow("First Name *:", self.first_name)
         layout.addRow("Last Name *:", self.last_name)
         layout.addRow("Date of Birth *:", self.dob)
-        layout.addRow("SSN Last 4 Digits:", self.ssn_last4)
-        layout.addRow("Gender:", self.gender)
-        layout.addRow("Address:", self.address)
-        layout.addRow("Email:", self.email)
-        layout.addRow("Phone Number:", self.phone)
 
         # Action buttons
         btn_layout = QHBoxLayout()
@@ -206,6 +184,10 @@ class RegisterDialog(QDialog):
             QMessageBox.warning(self, "Missing Fields", "First Name and Last Name are required.")
             return
 
+        if len(self.password.text().strip()) < 10:
+            QMessageBox.warning(self, "Invalid Password", "Password must be at least 10 characters.")
+            return
+
         # Age validation (18 to 110 years old)
         today = QDate.currentDate()
         birth_date = self.dob.date()
@@ -218,30 +200,13 @@ class RegisterDialog(QDialog):
             QMessageBox.warning(self, "Invalid Age", "Please enter a realistic date of birth (maximum age 110).")
             return
 
-        # SSN validation
-        ssn = self.ssn_last4.text().strip()
-        if ssn and len(ssn) != 4:
-            QMessageBox.warning(self, "Invalid SSN", "Last 4 digits of SSN must be exactly 4 numbers.")
-            return
-
-        # Basic email validation
-        email = self.email.text().strip()
-        if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            QMessageBox.warning(self, "Invalid Email", "Please enter a valid email address.")
-            return
-
         # Prepare data for database
         user_data = {
             'username': self.username.text().strip(),
             'password': self.password.text().strip(),
             'first_name': self.first_name.text().strip(),
             'last_name': self.last_name.text().strip(),
-            'date_of_birth': birth_date.toString("yyyy-MM-dd"),
-            'ssn_last4': ssn,
-            'gender': self.gender.currentText(),
-            'address': self.address.text().strip(),
-            'email': email,
-            'phone': self.phone.text().strip()
+            'date_of_birth': birth_date.toString("yyyy-MM-dd")
         }
 
         if create_new_user(user_data):

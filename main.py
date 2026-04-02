@@ -35,10 +35,6 @@ if __name__ == "__main__":
     if test_mode is True and test_user_id is None:
         print("Error: Run 'python test_logic.py' first to generate the test data!")
         sys.exit(1)
-    elif test_user_id is None:
-        print("Error: User does not exist.")
-        # TODO: replace sys.exit(1) with a loop to prompt for a new user id.
-        sys.exit(1)
 
     # Instantiate application using the given arguments
     app = QApplication(sys.argv)
