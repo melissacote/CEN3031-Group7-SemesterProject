@@ -2,6 +2,7 @@
 import sqlite3
 
 from database.db_connection import DB_NAME
+from utils.password import verify_password, hash_password
 
 
 def get_user_id(username: str) -> int | None:
@@ -53,7 +54,7 @@ def verify_user(username: str, password: str) -> bool:
         cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
         result = cursor.fetchone()
         conn.close()
-        return result and result[0] == password
+        return result and verify_password(result[0], password)
     except Exception:
         return False
 
@@ -71,6 +72,7 @@ def create_new_user(user_data: dict) -> bool:
     try:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
+        hashed_password = hash_password(user_data['password'])
 
         cursor.execute('''
             INSERT INTO users (
@@ -78,7 +80,7 @@ def create_new_user(user_data: dict) -> bool:
             ) VALUES (?, ?, ?, ?, ?)
         ''', (
             user_data['username'],
-            user_data['password'],
+            hashed_password,
             user_data.get('first_name'),
             user_data.get('last_name'),
             user_data.get('date_of_birth')
