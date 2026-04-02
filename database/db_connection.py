@@ -62,17 +62,6 @@ def create_tables():
             )
         '''
         cursor.execute(create_administration_log)
-
-        #FIXME: Currently there is an error here where the first_name column is not detected.
-
-        # Create default admin account if it doesn't exist
-        # cursor.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
-        # if cursor.fetchone()[0] == 0:
-        #     cursor.execute('''
-        #             INSERT INTO users (username, password, first_name, last_name, email)
-        #             VALUES (?, ?, ?, ?, ?)
-        #         ''', ("admin", "password", "Admin", "User", "admin@example.com"))
-
         conn.commit()
 
 def get_user_id(username: str) -> int | None:
