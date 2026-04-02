@@ -63,8 +63,3 @@ def create_tables():
         '''
         cursor.execute(create_administration_log)
         conn.commit()
-
-
-# For temp testing purposes only, remove when testing complete and move function call to main
-if __name__ == '__main__':
-    create_tables()
