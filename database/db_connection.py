@@ -12,8 +12,17 @@ DB_NAME = 'medrec.db'
 def get_connection():
     return sqlite3.connect(DB_NAME)
 
-def create_tables():
-    with get_connection() as conn:
+
+def create_tables(conn: sqlite3.Connection | None = None) -> None:
+    """
+    Create all required database tables if they do not already exist.
+
+    Args:
+        conn: Optional database connection. If not provided, get_connection() will be used by default.
+    """
+    if conn is None:
+        conn = get_connection()
+    with conn:
         cursor = conn.cursor()
 
         # Create users table with all required personal information fields
