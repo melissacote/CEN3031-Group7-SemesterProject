@@ -70,16 +70,15 @@ def get_user_medications(username: str) -> list[dict]:
     if not user_id:
         return []
     try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT medication_name, dosage, frequency, start_date, notes
-            FROM medications
-            WHERE user_id = ?
-            ORDER BY start_date DESC
-        """, (user_id,))
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(zip(["name", "dosage", "frequency", "start_date", "notes"], row)) for row in rows]
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT medication_name, dosage, frequency, start_date, notes
+                FROM medications
+                WHERE user_id = ?
+                ORDER BY start_date DESC
+            """, (user_id,))
+            rows = cursor.fetchall()
+            return [dict(zip(["name", "dosage", "frequency", "start_date", "notes"], row)) for row in rows]
     except Exception:
         return []
