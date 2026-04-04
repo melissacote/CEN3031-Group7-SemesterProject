@@ -18,9 +18,12 @@ def add_medication(user_id, medication_name, dosage, route, frequency, scheduled
         conn.commit()
 
 # ADDED BY NC: Implement query for medications to be administered on current date & chronological sorting
-def get_todays_medications_sorted(user_id):
+def get_todays_medications_sorted(user_id, conn: sqlite3.Connection | None = None):
     date_today = datetime.now().strftime("%Y-%m-%d")
-    with get_connection() as conn:
+
+    if conn is None:
+        conn = get_connection()
+    with conn:
         cursor = conn.cursor()
         
         # LEFT JOIN the administration_log to see if a record exists for TODAY
