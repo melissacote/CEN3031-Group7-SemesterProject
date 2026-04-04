@@ -80,8 +80,12 @@ class DosageTrackingScreen(QWidget):
             return
 
         for med in meds:
-            med_id, name, dosage, time = med
-            display_text = f"{time} - {name} ({dosage})"
+            med_id, name, dosage, time, is_taken = med
+            # The UI accurately reflects the database state!
+            if is_taken == 1:
+                display_text = f"{time} - {name} ({dosage}) ✅"
+            else:
+                display_text = f"{time} - {name} ({dosage})"
 
             # Add it to the visual UI list
             self.tracking_list.addItem(display_text)
@@ -92,7 +96,6 @@ class DosageTrackingScreen(QWidget):
     def mark_as_taken(self):
         selected_item = self.tracking_list.currentItem()
         if selected_item:
-            # Prevent double-logging if it already has a checkmark
             if "✅" in selected_item.text():
                 QMessageBox.information(self, "Already Taken", "This medication is already marked as taken.")
                 return
@@ -100,8 +103,10 @@ class DosageTrackingScreen(QWidget):
             med_id = selected_item.data(32)
             log_medication_taken(self.user_id, med_id)
 
-            # Add a visual checkmark instead of deleting the item
-            selected_item.setText(selected_item.text() + " ✅")
+            # True Database Synchronization
+            # Instead of manually hacking the text, force the UI to reload fresh from the database
+            self.load_medications() 
+            QMessageBox.information(self, "Success", "Medication logged successfully.")
         else:
             QMessageBox.warning(self, "Selection Error", "Please click a medication first.")
 
@@ -109,14 +114,11 @@ class DosageTrackingScreen(QWidget):
         selected_item = self.tracking_list.currentItem()
         if selected_item:
             med_id = selected_item.data(32)
-
-            # Attempt to undo in the database
             success = undo_medication_taken(self.user_id, med_id)
 
             if success:
-                # Remove the visual checkmark
-                new_text = selected_item.text().replace(" ✅", "")
-                selected_item.setText(new_text)
+                # True Database Synchronization
+                self.load_medications() # Refresh UI from database
                 QMessageBox.information(self, "Undo Success", "Medication administration undone.")
             else:
                 QMessageBox.warning(self, "Undo Failed", "No record found to undo for today.")
