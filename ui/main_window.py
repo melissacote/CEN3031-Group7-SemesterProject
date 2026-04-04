@@ -6,18 +6,16 @@ Displays menu bar, toolbar, quick action buttons, and interactive matplotlib cha
 """
 
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QSplitter, QFrame, QLabel,
-    QToolBar, QMenuBar, QMenu, QMessageBox, QPushButton, QApplication
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFrame, QLabel,
+    QToolBar, QMenuBar, QMenu, QMessageBox, QPushButton, QApplication,
+    QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtCore import Qt, QSize
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-import numpy as np
-
-from services.medication import get_user_medications
+from services.medication import get_user_medications, get_medications_for_management
 from services.user import get_user_id, get_user_profile
-from ui.dialog_windows import ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow, AddMedicationDialog
+from ui.dialog_windows import ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow, \
+    AddMedicationDialog
 from ui.tracking_screen import DosageTrackingScreen
 
 
@@ -77,7 +75,7 @@ class MainWindow(QMainWindow):
 
         # Accesbility Toggle
         self.access_act = QAction("👓 Large Print", self)
-        self.access_act.setCheckable(True) # Makes it act like an on/off switch
+        self.access_act.setCheckable(True)  # Makes it act like an on/off switch
         self.access_act.triggered.connect(self.toggle_accessibility_font)
         toolbar.addAction(self.access_act)
 
@@ -90,6 +88,7 @@ class MainWindow(QMainWindow):
         # Opens the add medication dialog from the dashboard button interaction
         dialog = AddMedicationDialog(self.current_user_id, self)
         dialog.exec()
+        self._load_medications_into_table()
 
     def setup_central_widget(self) -> None:
         """Central area with charts and quick actions."""
@@ -153,43 +152,68 @@ class MainWindow(QMainWindow):
         return frame
 
     def create_charts_panel(self) -> QWidget:
-        """Create the center panel containing matplotlib charts."""
+        """Create the center panel showing the user's current medication list."""
+        frame = QFrame()
+        frame.setFrameShape(QFrame.Shape.StyledPanel)
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
 
-        # NOTE: THIS FUNCTION CAN BE IMPROVED/MODIFIED TO SUIT OUR NEEDS, IT IS JUST AN EXAMPLE OF WHAT WE CAN DO.
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
+        # Header row: title + refresh button
+        header_row = QHBoxLayout()
+        title = QLabel("<h2>Current Medications</h2>")
+        header_row.addWidget(title)
+        header_row.addStretch()
+        refresh_btn = QPushButton("🔄 Refresh")
+        refresh_btn.setFixedWidth(110)
+        refresh_btn.clicked.connect(self._load_medications_into_table)
+        header_row.addWidget(refresh_btn)
+        layout.addLayout(header_row)
 
-        # Line Chart - Default tracker
-        fig1 = plt.Figure(figsize=(10, 5), dpi=100)
-        canvas1 = FigureCanvas(fig1)
-        ax1 = fig1.add_subplot(111)
-        x = np.linspace(0, 12, 100)
+        # Table
+        self.med_table = QTableWidget()
+        self.med_table.setColumnCount(6)
+        self.med_table.setHorizontalHeaderLabels(
+            ["Name", "Dosage", "Pharmacy", "Frequency", "Scheduled Time", "Prescriber"]
+        )
+        self.med_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.med_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.med_table.setAlternatingRowColors(True)
+        header = self.med_table.horizontalHeader()
+        for col in range(6):
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(self.med_table)
 
-        # TODO: This is hard-coded for now, we need to implement smart logic to data requirements
-        ax1.plot(x, np.sin(x), label="Medcation 1", color="#27ae60", linewidth=3)
-        ax1.plot(x, np.cos(x), label="Medication 2", color="#e74c3c", linewidth=3)
-        ax1.set_title("1 Year Medication Intake Tracker", fontsize=14, fontweight="bold")
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
-        layout.addWidget(canvas1)
+        self._load_medications_into_table()
 
-        # Bar Chart - Missed medication tracker
-        fig2 = plt.Figure(figsize=(10, 5), dpi=100)
-        canvas2 = FigureCanvas(fig2)
-        ax2 = fig2.add_subplot(111)
+        return frame
 
-        #TODO: This is hard-coded for now, we need to implement smart logic to handle each medication the user is taking
-        quarters = ["Med1", "Med2", "Med3", "Med4"]
-        values = [23, 10, 57, 16]
-        ax2.bar(quarters, values, color=["#3498db", "#2ecc71", "#f1c40f", "#e67e22"])
-        ax2.set_title("Number of Missed Days", fontsize=14, fontweight="bold")
-        ax2.set_ylim(0, 110)
-        ax2.grid(True, alpha=0.3)
-        layout.addWidget(canvas2)
+    def _load_medications_into_table(self) -> None:
+        """Fetch medications from DB and populate self.med_table."""
+        meds = get_medications_for_management(self.current_user_id)
+        self.med_table.setRowCount(0)
 
-        return widget
+        if not meds:
+            self.med_table.setRowCount(1)
+            placeholder = QTableWidgetItem("No medications found.")
+            placeholder.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.med_table.setItem(0, 0, placeholder)
+            self.med_table.setSpan(0, 0, 1, 6)
+            self.statusBar().showMessage("No medications on record.")
+            return
 
-# ==================== FUNCTIONAL BUTTONS ====================
+        self.med_table.setRowCount(len(meds))
+        columns = ["name", "dosage", "route", "frequency", "scheduled_time", "prescriber"]
+        for row, med in enumerate(meds):
+            for col, key in enumerate(columns):
+                value = med.get(key) or ""
+                self.med_table.setItem(row, col, QTableWidgetItem(str(value)))
+
+        self.statusBar().showMessage(
+            f"✅ {len(meds)} medication(s) loaded for {self.current_user}"
+        )
+
+    # ==================== FUNCTIONAL BUTTONS ====================
 
     def refresh_data(self):
         """Refresh user data from SQLite."""
@@ -213,30 +237,30 @@ class MainWindow(QMainWindow):
         meds = get_user_medications(self.current_user)
         win = AnalyticsWindow(meds, self)
         win.exec()
-    
+
     def toggle_accessibility_font(self):
         """Toggles global application font for accessibility."""
         app = QApplication.instance()
-        
+
         if self.is_large_print:
             # Revert to standard font
             app.setFont(QFont("Segoe UI", 10))
-            
+
             # Clear the global stylesheet override
-            app.setStyleSheet("") 
-            
+            app.setStyleSheet("")
+
             self.is_large_print = False
-            self.access_act.setChecked(False) # Unpress the toolbar button
+            self.access_act.setChecked(False)  # Unpress the toolbar button
             self.statusBar().showMessage("Accessibility: Standard Print Enabled")
         else:
             # Apply accessible large print
             app.setFont(QFont("Arial", 18))
-            
+
             # FORCE override all hardcoded widget font-sizes with a global wildcard
-            app.setStyleSheet("* { font-size: 18pt; }") 
-            
+            app.setStyleSheet("* { font-size: 18pt; }")
+
             self.is_large_print = True
-            self.access_act.setChecked(True) # Press the toolbar button in
+            self.access_act.setChecked(True)  # Press the toolbar button in
             self.statusBar().showMessage("Accessibility: Large Print Enabled")
 
     def show_export(self):
