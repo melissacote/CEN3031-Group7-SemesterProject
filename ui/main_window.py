@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         self.resize(1350, 850)
 
         # self.setup_menu_bar()
-        # self.setup_toolbar()
+        self.setup_toolbar()
         self.setup_central_widget()
 
     def setup_menu_bar(self) -> None:
@@ -70,34 +70,16 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(QAction("Export Report", self))
 
     def setup_toolbar(self) -> None:
-        """Toolbar with functional buttons."""
+        """Toolbar with accessibility toggle."""
         toolbar = QToolBar("Main Toolbar")
         toolbar.setIconSize(QSize(26, 26))
         self.addToolBar(toolbar)
-
-        refresh_act = QAction("🔄 Refresh", self)
-        refresh_act.triggered.connect(self.refresh_data)
-        toolbar.addAction(refresh_act)
-
-        analytics_act = QAction("📊 Analytics", self)
-        analytics_act.triggered.connect(self.show_analytics)
-        toolbar.addAction(analytics_act)
-
-        export_act = QAction("📤 Export", self)
-        export_act.triggered.connect(self.show_export)
-        toolbar.addAction(export_act)
-
-        toolbar.addSeparator()
 
         # Accesbility Toggle
         self.access_act = QAction("👓 Large Print", self)
         self.access_act.setCheckable(True) # Makes it act like an on/off switch
         self.access_act.triggered.connect(self.toggle_accessibility_font)
         toolbar.addAction(self.access_act)
-
-        profile_act = QAction("👤 Profile", self)
-        profile_act.triggered.connect(self.show_profile)
-        toolbar.addAction(profile_act)
 
     def launch_dosage_tracker(self, user_id):
         # Pass the setup_central_widget function so the tracking screen can return to the dashboard
@@ -139,7 +121,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(QLabel("<h3>🚀 Quick Actions</h3>"))
 
         # Medication management button
-        add_med_btn = QPushButton("➕ Add medication")
+        add_med_btn = QPushButton("➕ Add Medication")
         add_med_btn.setStyleSheet("padding: 14px; text-align: left;")
         add_med_btn.clicked.connect(self.open_add_medication_dialog)
         layout.addWidget(add_med_btn)
