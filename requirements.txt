@@ -4,3 +4,4 @@ reportlab
 matplotlib
 numpy
 argon2-cffi
+pytest # dev-only dependency
