@@ -46,8 +46,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"MedRec 1.0.0 Dashboard - {username}")
         self.resize(1350, 850)
 
-        self.setup_menu_bar()
-        self.setup_toolbar()
+        # self.setup_menu_bar()
+        # self.setup_toolbar()
         self.setup_central_widget()
 
     def setup_menu_bar(self) -> None:
@@ -151,9 +151,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(report_btn)
 
         # View Analytics – placeholder
-        analytics_btn = QPushButton("📈 View Analytics")
-        analytics_btn.setStyleSheet("padding: 14px; text-align: left;")
-        layout.addWidget(analytics_btn)
+        # analytics_btn = QPushButton("📈 View Analytics")
+        # analytics_btn.setStyleSheet("padding: 14px; text-align: left;")
+        # layout.addWidget(analytics_btn)
 
         # Settings
         settings_btn = QPushButton("⚙️ Settings")
