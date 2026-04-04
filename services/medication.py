@@ -108,3 +108,18 @@ def get_user_medications(username: str, conn: sqlite3.Connection | None = None) 
     finally:
         if owned_conn:
             conn.close()
+
+# Returns list of medication dictionaries for the user for the management screen.
+def get_medications_for_management(user_id, conn: sqlite3.Connection | None = None):
+    if conn is None:
+        conn = get_connection()
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT medication_id, medication_name, dosage, route, frequency, scheduled_time, prescriber, special_instructions
+            FROM medications
+            WHERE user_id = ?
+            ORDER BY LOWER(medication_name) ASC
+        ''', (user_id,))
+        rows = cursor.fetchall()
+        return [dict(zip(["medication_id", "name", "dosage", "route", "frequency", "scheduled_time", "prescriber", "special_instructions"], row)) for row in rows]
