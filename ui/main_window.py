@@ -242,10 +242,10 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Accessibility: Standard Print Enabled")
         else:
             # Apply accessible large print
-            app.setFont(QFont("Arial", 14))
+            app.setFont(QFont("Arial", 18))
             
             # FORCE override all hardcoded widget font-sizes with a global wildcard
-            app.setStyleSheet("* { font-size: 14pt; }") 
+            app.setStyleSheet("* { font-size: 18pt; }") 
             
             self.is_large_print = True
             self.access_act.setChecked(True) # Press the toolbar button in
