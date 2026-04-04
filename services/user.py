@@ -5,10 +5,12 @@ from database.db_connection import get_connection
 from utils.password import verify_password, hash_password
 
 
-def get_user_id(username: str) -> int | None:
+def get_user_id(username: str, conn: sqlite3.Connection | None = None) -> int | None:
     """Return user ID for a given username."""
+    if conn is None:
+        conn = get_connection()
     try:
-        with get_connection() as conn:
+        with conn:
             cursor = conn.cursor()
             cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
             row = cursor.fetchone()
@@ -17,10 +19,12 @@ def get_user_id(username: str) -> int | None:
         return None
 
 
-def get_user_profile(username: str) -> dict | None:
+def get_user_profile(username: str, conn: sqlite3.Connection | None = None) -> dict | None:
     """Return full user profile as dictionary."""
+    if conn is None:
+        conn = get_connection()
     try:
-        with get_connection() as conn:
+        with conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
             row = cursor.fetchone()
@@ -32,21 +36,24 @@ def get_user_profile(username: str) -> dict | None:
         return None
 
 
-def verify_user(username: str, password: str) -> bool:
+def verify_user(username: str, password: str, conn: sqlite3.Connection | None = None) -> bool:
     """
     Verify if the provided username and password match a record in the database.
 
     Args:
         username: The username to check
         password: The password to verify
+        conn: Optional database connection. If not provided, get_connection() will be used by default.
 
     Returns:
         True if credentials are valid, False otherwise
     """
     if not username or not password:
         return False
+    if conn is None:
+        conn = get_connection()
     try:
-        with get_connection() as conn:
+        with conn:
             cursor = conn.cursor()
             cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
             result = cursor.fetchone()
@@ -55,18 +62,21 @@ def verify_user(username: str, password: str) -> bool:
         return False
 
 
-def create_new_user(user_data: dict) -> bool:
+def create_new_user(user_data: dict, conn: sqlite3.Connection | None = None) -> bool:
     """
     Create a new user record in the database with all registration fields.
 
     Args:
         user_data: Dictionary containing user registration information
+        conn: Optional database connection. If not provided, get_connection() will be used by default.
 
     Returns:
         True if user was created successfully, False if username already exists or error occurred
     """
+    if conn is None:
+        conn = get_connection()
     try:
-        with get_connection() as conn:
+        with conn:
             cursor = conn.cursor()
             hashed_password = hash_password(user_data['password'])
 
