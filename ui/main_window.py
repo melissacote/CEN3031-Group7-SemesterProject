@@ -7,9 +7,9 @@ Displays menu bar, toolbar, quick action buttons, and interactive matplotlib cha
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QFrame, QLabel,
-    QToolBar, QMenuBar, QMenu, QMessageBox, QPushButton
+    QToolBar, QMenuBar, QMenu, QMessageBox, QPushButton, QApplication
 )
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtCore import Qt, QSize
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -42,6 +42,7 @@ class MainWindow(QMainWindow):
         self.tracking_widget = None
         self.current_user = username
         self.current_user_id = get_user_id(username)
+        self.is_large_print = False
         self.setWindowTitle(f"MedRec 1.0.0 Dashboard - {username}")
         self.resize(1350, 850)
 
@@ -87,6 +88,12 @@ class MainWindow(QMainWindow):
         toolbar.addAction(export_act)
 
         toolbar.addSeparator()
+
+        # Accesbility Toggle
+        self.access_act = QAction("👓 Large Print", self)
+        self.access_act.setCheckable(True) # Makes it act like an on/off switch
+        self.access_act.triggered.connect(self.toggle_accessibility_font)
+        toolbar.addAction(self.access_act)
 
         profile_act = QAction("👤 Profile", self)
         profile_act.triggered.connect(self.show_profile)
@@ -218,6 +225,31 @@ class MainWindow(QMainWindow):
         meds = get_user_medications(self.current_user)
         win = AnalyticsWindow(meds, self)
         win.exec()
+    
+    def toggle_accessibility_font(self):
+        """Toggles global application font for accessibility."""
+        app = QApplication.instance()
+        
+        if self.is_large_print:
+            # Revert to standard font
+            app.setFont(QFont("Segoe UI", 10))
+            
+            # Clear the global stylesheet override
+            app.setStyleSheet("") 
+            
+            self.is_large_print = False
+            self.access_act.setChecked(False) # Unpress the toolbar button
+            self.statusBar().showMessage("Accessibility: Standard Print Enabled")
+        else:
+            # Apply accessible large print
+            app.setFont(QFont("Arial", 14))
+            
+            # FORCE override all hardcoded widget font-sizes with a global wildcard
+            app.setStyleSheet("* { font-size: 14pt; }") 
+            
+            self.is_large_print = True
+            self.access_act.setChecked(True) # Press the toolbar button in
+            self.statusBar().showMessage("Accessibility: Large Print Enabled")
 
     def show_export(self):
         """Open Export dialog."""

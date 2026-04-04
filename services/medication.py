@@ -18,17 +18,24 @@ def add_medication(user_id, medication_name, dosage, route, frequency, scheduled
         conn.commit()
 
 # ADDED BY NC: Implement query for medications to be administered on current date & chronological sorting
-def get_todays_medications_sorted(user_id, conn: sqlite3.Connection | None = None):
-    if conn is None:
-        conn = get_connection()
-    with conn:
+def get_todays_medications_sorted(user_id):
+    date_today = datetime.now().strftime("%Y-%m-%d")
+    with get_connection() as conn:
         cursor = conn.cursor()
+        
+        # LEFT JOIN the administration_log to see if a record exists for TODAY
         cursor.execute('''
-            SELECT medication_id, medication_name, dosage, scheduled_time 
-            FROM medications 
-            WHERE user_id=? 
-            ORDER BY scheduled_time ASC
-        ''', (user_id,))
+            SELECT m.medication_id, m.medication_name, m.dosage, m.scheduled_time,
+                   CASE WHEN a.log_id IS NOT NULL THEN 1 ELSE 0 END as is_taken
+            FROM medications m
+            LEFT JOIN administration_log a 
+                ON m.medication_id = a.medication_id 
+                AND a.user_id = m.user_id 
+                AND a.date_taken = ?
+            WHERE m.user_id = ? 
+            ORDER BY m.scheduled_time ASC
+        ''', (date_today, user_id))
+        
         return cursor.fetchall()
     
 # ADDED BY NC: Log when a medication is taken
