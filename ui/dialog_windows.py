@@ -7,7 +7,7 @@ Each class is self-contained and well-documented.
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
-    QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit
+    QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget
 )
 from PyQt6.QtCore import Qt
 import pandas as pd
@@ -16,7 +16,103 @@ from reportlab.pdfgen import canvas
 import csv
 import os
 from datetime import datetime
+from services.medication import add_medication, get_medications_for_management
 
+
+class AddMedicationDialog(QDialog):
+    """Add medication dialog for the management screen."""
+
+    def __init__(self, user_id: int, parent=None):
+        super().__init__(parent)
+        self.user_id = user_id
+        self.setWindowTitle("Add medication")
+        self.resize(460, 460)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("New medication"))
+
+        # Form fields the user fills before pressing save
+        form = QFormLayout()
+        self.input_name = QLineEdit()
+        self.input_dosage = QLineEdit()
+        self.input_route = QLineEdit()
+        self.input_frequency = QLineEdit()
+        self.input_scheduled_time = QLineEdit()
+        self.input_prescriber = QLineEdit()
+        self.input_special_instructions = QLineEdit()
+        self.input_name.setPlaceholderText("required")
+        self.input_dosage.setPlaceholderText("required")
+        self.input_route.setPlaceholderText("required")
+        self.input_frequency.setPlaceholderText("required")
+        self.input_scheduled_time.setPlaceholderText("required")
+        self.input_prescriber.setPlaceholderText("optional")
+        self.input_special_instructions.setPlaceholderText("optional")
+        form.addRow("Medication name:", self.input_name)
+        form.addRow("Dosage:", self.input_dosage)
+        form.addRow("Route:", self.input_route)
+        form.addRow("Frequency:", self.input_frequency)
+        form.addRow("Scheduled time:", self.input_scheduled_time)
+        form.addRow("Prescriber:", self.input_prescriber)
+        form.addRow("Special instructions:", self.input_special_instructions)
+        layout.addLayout(form)
+
+        # Save button to add the medication record to the database
+        save_btn = QPushButton("Save")
+        save_btn.clicked.connect(self.on_save)
+        layout.addWidget(save_btn)
+
+        # List of medications already saved for this user
+        layout.addWidget(QLabel("Saved medications"))
+        self.med_list = QListWidget()
+        self.med_list.setMinimumHeight(150)
+        layout.addWidget(self.med_list)
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+
+        self.reload_list()
+
+    def reload_list(self):
+        # Called when dialog opens and after each successful save
+        # Pulling the latest rows from the DB so the list stays in sync
+        self.med_list.clear()
+        meds = get_medications_for_management(self.user_id)
+        for med in meds:
+            self.med_list.addItem(f"{med['name']} | {med['dosage']} | {med['scheduled_time']}")
+
+    def on_save(self):
+        # Validating the required fields before saving the medication record
+        medication_name = self.input_name.text().strip()
+        dosage = self.input_dosage.text().strip()
+        route = self.input_route.text().strip()
+        frequency = self.input_frequency.text().strip()
+        scheduled_time = self.input_scheduled_time.text().strip()
+        if not medication_name or not dosage or not route or not frequency or not scheduled_time:
+            QMessageBox.warning(self, "Missing info", "Enter medication name, dosage, route, frequency, and scheduled time.")
+            return
+
+        # Inserting the medication record into the database
+        add_medication(
+            self.user_id,
+            medication_name,
+            dosage,
+            route,
+            frequency,
+            scheduled_time,
+            self.input_prescriber.text().strip(),
+            self.input_special_instructions.text().strip(),
+        )
+
+        # Clearing the form fields and refreshing the list to show the new medication record
+        self.input_name.clear()
+        self.input_dosage.clear()
+        self.input_route.clear()
+        self.input_frequency.clear()
+        self.input_scheduled_time.clear()
+        self.input_prescriber.clear()
+        self.input_special_instructions.clear()
+        self.reload_list()
 
 class ProfileWindow(QDialog):
     """Displays the logged-in user's full profile information."""

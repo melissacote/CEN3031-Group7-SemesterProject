@@ -17,7 +17,7 @@ import numpy as np
 
 from services.medication import get_user_medications
 from services.user import get_user_id, get_user_profile
-from ui.dialog_windows import ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow
+from ui.dialog_windows import ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow, AddMedicationDialog
 from ui.tracking_screen import DosageTrackingScreen
 
 
@@ -46,8 +46,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"MedRec 1.0.0 Dashboard - {username}")
         self.resize(1350, 850)
 
-        self.setup_menu_bar()
-        self.setup_toolbar()
+        # self.setup_menu_bar()
+        # self.setup_toolbar()
         self.setup_central_widget()
 
     def setup_menu_bar(self) -> None:
@@ -104,6 +104,11 @@ class MainWindow(QMainWindow):
         self.tracking_widget = DosageTrackingScreen(user_id, go_back_callback=self.setup_central_widget)
         self.setCentralWidget(self.tracking_widget)
 
+    def open_add_medication_dialog(self):
+        # Opens the add medication dialog from the dashboard button interaction
+        dialog = AddMedicationDialog(self.current_user_id, self)
+        dialog.exec()
+
     def setup_central_widget(self) -> None:
         """Central area with charts and quick actions."""
         central = QWidget()
@@ -133,10 +138,11 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(frame)
         layout.addWidget(QLabel("<h3>🚀 Quick Actions</h3>"))
 
-        # Scan Medication – placeholder
-        scan_btn = QPushButton("📷 Scan Medication")
-        scan_btn.setStyleSheet("padding: 14px; text-align: left;")
-        layout.addWidget(scan_btn)
+        # Medication management button
+        add_med_btn = QPushButton("➕ Add medication")
+        add_med_btn.setStyleSheet("padding: 14px; text-align: left;")
+        add_med_btn.clicked.connect(self.open_add_medication_dialog)
+        layout.addWidget(add_med_btn)
 
         # Dosage Tracker
         track_btn = QPushButton("💊 Daily Dosage Tracker")
@@ -151,9 +157,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(report_btn)
 
         # View Analytics – placeholder
-        analytics_btn = QPushButton("📈 View Analytics")
-        analytics_btn.setStyleSheet("padding: 14px; text-align: left;")
-        layout.addWidget(analytics_btn)
+        # analytics_btn = QPushButton("📈 View Analytics")
+        # analytics_btn.setStyleSheet("padding: 14px; text-align: left;")
+        # layout.addWidget(analytics_btn)
 
         # Settings
         settings_btn = QPushButton("⚙️ Settings")
