@@ -87,6 +87,7 @@ class MainWindow(QMainWindow):
     def open_add_medication_dialog(self):
         # Opens the add medication dialog from the dashboard button interaction
         dialog = AddMedicationDialog(self.current_user_id, self)
+        dialog.medication_saved.connect(self._load_medications_into_table)
         dialog.exec()
         self._load_medications_into_table()
 
@@ -159,22 +160,17 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
-        # Header row: title + refresh button
+        # Header row: title
         header_row = QHBoxLayout()
         title = QLabel("<h2>Current Medications</h2>")
         header_row.addWidget(title)
-        header_row.addStretch()
-        refresh_btn = QPushButton("🔄 Refresh")
-        refresh_btn.setFixedWidth(110)
-        refresh_btn.clicked.connect(self._load_medications_into_table)
-        header_row.addWidget(refresh_btn)
         layout.addLayout(header_row)
 
         # Table
         self.med_table = QTableWidget()
         self.med_table.setColumnCount(6)
         self.med_table.setHorizontalHeaderLabels(
-            ["Name", "Dosage", "Pharmacy", "Frequency", "Scheduled Time", "Prescriber"]
+            ["Medication Name", "Dosage", "Route", "Frequency", "Scheduled Time", "Prescriber"]
         )
         self.med_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.med_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
