@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
     QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 import pandas as pd
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -21,6 +21,7 @@ from services.medication import add_medication, get_medications_for_management
 
 class AddMedicationDialog(QDialog):
     """Add medication dialog for the management screen."""
+    medication_saved = pyqtSignal()
 
     def __init__(self, user_id: int, parent=None):
         super().__init__(parent)
@@ -113,6 +114,7 @@ class AddMedicationDialog(QDialog):
         self.input_prescriber.clear()
         self.input_special_instructions.clear()
         self.reload_list()
+        self.medication_saved.emit()
 
 class ProfileWindow(QDialog):
     """Displays the logged-in user's full profile information."""
