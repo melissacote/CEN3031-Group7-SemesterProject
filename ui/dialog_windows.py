@@ -236,22 +236,27 @@ class ExportDialog(QDialog):
 
 
 class MedicationReportDialog(QDialog):
-    """Dialog to select dates and generate a PDF report."""
+    """Dialog to select dates and generate a PDF report of medication intake."""
     def __init__(self, user_id, username, parent=None):
         super().__init__(parent)
         self.user_id = user_id
         self.username = username
-        self.setWindowTitle("Generate PDF Report")
+        self.setWindowTitle("Generate PDF Medication Report")
         self.resize(350, 250)
 
         layout = QVBoxLayout(self)
         
-        layout.addWidget(QLabel(f"<h3>📄 Compliance Report for {username}</h3>"))
+        layout.addWidget(QLabel(f"<h3>📄 Medication Intake Report for {username}</h3>"))
+        layout.addWidget(QLabel("This will create a professional PDF summary of your current medications."))
         layout.addWidget(QLabel("Select the date range for the medical report:"))
 
         # Use date selection panel to allow users to pick custom start/end dates for the report (defaults to last 30 days)  
         self.date_panel = DateSelectionPanel()
         layout.addWidget(self.date_panel)
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        layout.addWidget(cancel_btn)
 
         # The action button inside the popup
         self.generate_btn = QPushButton("💾 Save PDF")
