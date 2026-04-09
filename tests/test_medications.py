@@ -3,7 +3,7 @@ import pytest
 from services.medication import get_user_medications, add_medication, get_medications_for_management
 from services.user import create_new_user, get_user_id
 
-@pytest.mark.skip(reason="get_user_medications uses columns that do not match existing medications table, cannot alter function without breaking ui screen usages")
+@pytest.mark.skip(reason="get_user_medications uses columns that do not match existing medications table, unsure if function is obsolete, will investigate")
 def test_get_user_medications_success(test_db):
     user_data = {
         'username': 'testuser',
@@ -41,3 +41,4 @@ def test_get_medications_for_management_success(test_db):
     assert len(result) == 2
     assert result[0]['name'] == 'Aspirin'
     assert result[1]['name'] == 'Lisinopril'
+
