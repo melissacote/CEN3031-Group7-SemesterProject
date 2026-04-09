@@ -3,7 +3,8 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListWidget, QPushButton, QMessageBox
 from PyQt6.QtGui import QFont
 
-from services.medication import get_todays_medications_sorted, log_medication_taken, undo_medication_taken
+from services.medication import get_todays_medications_sorted
+from services.administration_log import log_medication_taken, undo_medication_taken
 
 
 # Added by NC: This is the UI screen for tracking today's dosages. It will call the query to load the medications from
