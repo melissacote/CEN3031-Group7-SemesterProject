@@ -7,15 +7,15 @@ Each class is self-contained and well-documented.
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
-    QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget
+    QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget, QHeaderView
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 import pandas as pd
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 import csv
 import os
-from datetime import datetime
+from ui.date_panel import DateSelectionPanel
+from services.reports import get_medication_history
+from services.pdf_generator import generate_pdf_report
 from services.medication import add_medication, get_medications_for_management
 
 
@@ -236,52 +236,65 @@ class ExportDialog(QDialog):
 
 
 class MedicationReportDialog(QDialog):
-    """Generate PDF report of medication intake."""
-
-    def __init__(self, username: str, medications: list[dict], parent=None):
+    """Dialog to select dates and generate a PDF report."""
+    def __init__(self, user_id, username, parent=None):
         super().__init__(parent)
+        self.user_id = user_id
         self.username = username
-        self.medications = medications
-        self.setWindowTitle("Generate Medication Report")
-        self.setFixedSize(480, 300)
+        self.setWindowTitle("Generate PDF Report")
+        self.resize(350, 250)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(f"<h3>📄 Medication Intake Report for {username}</h3>"))
-        layout.addWidget(QLabel("This will create a professional PDF summary of your current medications."))
+        
+        layout.addWidget(QLabel(f"<h3>📄 Compliance Report for {username}</h3>"))
+        layout.addWidget(QLabel("Select the date range for the medical report:"))
 
-        generate_btn = QPushButton("Generate & Save PDF")
-        generate_btn.clicked.connect(self.generate_pdf)
-        layout.addWidget(generate_btn)
+        # Use date selection panel to allow users to pick custom start/end dates for the report (defaults to last 30 days)  
+        self.date_panel = DateSelectionPanel()
+        layout.addWidget(self.date_panel)
 
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.reject)
-        layout.addWidget(cancel_btn)
+        # The action button inside the popup
+        self.generate_btn = QPushButton("💾 Save PDF")
+        self.generate_btn.setStyleSheet("padding: 10px; font-weight: bold;")
+        self.generate_btn.clicked.connect(self.generate_pdf)
+        layout.addWidget(self.generate_btn)
 
     def generate_pdf(self):
-        filename, _ = QFileDialog.getSaveFileName(self, "Save PDF", f"{self.username}_medication_report.pdf", "PDF Files (*.pdf)")
-        if not filename:
-            return
+        """Handles the generation process when the button is clicked."""
+        # Grab custom dates from the UI panel
+        start_date, end_date = self.date_panel.get_selected_dates()
 
-        try:
-            c = canvas.Canvas(filename, pagesize=letter)
-            c.setFont("Helvetica-Bold", 16)
-            c.drawString(50, 750, f"Medication Report – {self.username}")
-            c.setFont("Helvetica", 12)
-            c.drawString(50, 720, f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        # Open a "Save As" file dialog
+        default_filename = f"{self.username}_Compliance_Report.pdf"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Patient Report", 
+            os.path.join(os.path.expanduser("~"), "Desktop", default_filename),
+            "PDF Files (*.pdf)"
+        )
 
-            y = 680
-            for med in self.medications:
-                c.drawString(50, y, f"• {med['name']}  |  {med['dosage']}  |  {med['frequency']}")
-                y -= 20
-                if y < 100:
-                    c.showPage()
-                    y = 750
+        if not file_path:
+            return # User canceled the save dialog
 
-            c.save()
-            QMessageBox.information(self, "Success", f"PDF saved as {os.path.basename(filename)}")
-            self.accept()
-        except Exception as e:
-            QMessageBox.critical(self, "PDF Generation Failed", str(e))
+        self.generate_btn.setText("Generating...")
+        self.generate_btn.setEnabled(False)
+
+        # Call the backend PDF generator
+        success = generate_pdf_report(
+            user_id=self.user_id,
+            patient_name=self.username,
+            start_date=start_date,
+            end_date=end_date,
+            output_path=file_path
+        )
+
+        # Handle Success/Failure
+        if success:
+            QMessageBox.information(self, "Success", f"Report successfully saved to:\n\n{file_path}")
+            self.accept() # Close the popup window
+        else:
+            QMessageBox.critical(self, "Error", "Failed to generate the PDF report. Please check the logs.")
+            self.generate_btn.setText("💾 Save PDF")
+            self.generate_btn.setEnabled(True)
 
 
 class SettingsWindow(QDialog):
@@ -327,3 +340,66 @@ class SettingsWindow(QDialog):
             f"FPS: {self.fps.text()}\n\n"
             "Hardware interface will be implemented in a future update."
         )
+
+class MedicationHistoryDialog(QDialog):
+    """An interactive UI to view past medication administration logs."""
+    def __init__(self, user_id, parent=None):
+        super().__init__(parent)
+        self.user_id = user_id
+        self.setWindowTitle("Medication History Log")
+        self.resize(700, 500)
+
+        layout = QVBoxLayout(self)
+
+        # Use date selection panel to allow users to pick custom start/end dates
+        self.date_panel = DateSelectionPanel()
+        layout.addWidget(self.date_panel)
+
+        # Search/Filter Button
+        self.search_btn = QPushButton("🔍 Load History")
+        self.search_btn.setStyleSheet("padding: 10px; font-weight: bold; background-color: #2c3e50; color: white;")
+        self.search_btn.clicked.connect(self.load_history)
+        layout.addWidget(self.search_btn)
+
+        # The table to display the results
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Date", "Time", "Medication", "Dosage"])
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setAlternatingRowColors(True)
+        
+        # Stretch columns to fit the window
+        header = self.table.horizontalHeader()
+        for col in range(4):
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+            
+        layout.addWidget(self.table)
+        
+        # Load the default 30-day view immediately when the window opens
+        self.load_history()
+
+    def load_history(self):
+        # Ask the panel for the dates
+        start, end = self.date_panel.get_selected_dates()
+        
+        # Fetch the data
+        logs, _, _ = get_medication_history(self.user_id, start, end)
+        
+        # Clear existing table data
+        self.table.setRowCount(0)
+        
+        if not logs:
+            self.table.setRowCount(1)
+            self.table.setItem(0, 0, QTableWidgetItem("No records found for this period."))
+            self.table.setSpan(0, 0, 1, 4)
+            return
+
+        # Populate the table with the fetched logs
+        self.table.setRowCount(len(logs))
+        for row_idx, row_data in enumerate(logs):
+            # row_data from get_medication_history is (med_name, dosage, date, time)
+            # Rearrange it slightly to match the table headers (Date, Time, Med, Dosage)
+            self.table.setItem(row_idx, 0, QTableWidgetItem(str(row_data[2]))) # Date
+            self.table.setItem(row_idx, 1, QTableWidgetItem(str(row_data[3]))) # Time
+            self.table.setItem(row_idx, 2, QTableWidgetItem(str(row_data[0]))) # Medication Name
+            self.table.setItem(row_idx, 3, QTableWidgetItem(str(row_data[1]))) # Dosage

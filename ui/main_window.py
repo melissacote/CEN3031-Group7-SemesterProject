@@ -5,17 +5,19 @@ Main dashboard window for the PyQt6 application.
 Displays menu bar, toolbar, quick action buttons, and interactive matplotlib charts.
 """
 
+import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFrame, QLabel,
     QToolBar, QMenuBar, QMenu, QMessageBox, QPushButton, QApplication,
-    QTableWidget, QTableWidgetItem, QHeaderView
+    QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog
 )
 from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtCore import Qt, QSize
 from services.medication import get_user_medications, get_medications_for_management
 from services.user import get_user_id, get_user_profile
-from ui.dialog_windows import ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow, \
-    AddMedicationDialog
+from ui.dialog_windows import ( ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow, 
+    AddMedicationDialog, MedicationHistoryDialog 
+)
 from ui.tracking_screen import DosageTrackingScreen
 
 
@@ -38,6 +40,7 @@ class MainWindow(QMainWindow):
         """
         super().__init__()
         self.tracking_widget = None
+        self.date_panel_btn = None
         self.current_user = username
         self.current_user_id = get_user_id(username)
         self.is_large_print = False
@@ -143,12 +146,18 @@ class MainWindow(QMainWindow):
         # analytics_btn.setStyleSheet("padding: 14px; text-align: left;")
         # layout.addWidget(analytics_btn)
 
+        # View History Log
+        history_btn = QPushButton("🔍 View History Log")
+        history_btn.clicked.connect(self.show_history)
+        history_btn.setStyleSheet("padding: 14px; text-align: left;")
+        layout.addWidget(history_btn)
+
         # Settings
         settings_btn = QPushButton("⚙️ Settings")
         settings_btn.clicked.connect(self.show_settings)
         settings_btn.setStyleSheet("padding: 14px; text-align: left;")
         layout.addWidget(settings_btn)
-
+        
         layout.addStretch()
         return frame
 
@@ -271,14 +280,26 @@ class MainWindow(QMainWindow):
 
     def generate_medication_report(self):
         """Open Generate Report dialog (PDF)."""
-        meds = get_user_medications(self.current_user)
-        if meds:
-            dlg = MedicationReportDialog(self.current_user, meds, self)
-            dlg.exec()
-        else:
-            QMessageBox.information(self, "No Medications", "No medication records found for this user.")
+        
+        # Check if they have medications first
+        meds = get_medications_for_management(self.current_user_id)
+        if not meds:
+            QMessageBox.information(
+                self, 
+                "No Medications", 
+                "No medication records found for this user. Nothing to report!"
+            )
+            return
+        
+        dlg = MedicationReportDialog(self.current_user_id, self.current_user, self)
+        dlg.exec()
 
     def show_settings(self):
         """Open Webcam Settings window."""
         win = SettingsWindow(self)
         win.exec()
+    
+    def show_history(self):
+        """Open the interactive History Viewer."""
+        dlg = MedicationHistoryDialog(self.current_user_id, self)
+        dlg.exec()
