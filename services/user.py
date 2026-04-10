@@ -57,7 +57,7 @@ def verify_user(username: str, password: str, conn: sqlite3.Connection | None = 
             cursor = conn.cursor()
             cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
             result = cursor.fetchone()
-            return result and verify_password(result[0], password)
+            return bool(result and verify_password(result[0], password))
     except Exception:
         return False
 

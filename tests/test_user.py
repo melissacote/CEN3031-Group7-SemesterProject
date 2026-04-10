@@ -1,5 +1,49 @@
-from services.user import create_new_user, verify_user
+from services.user import create_new_user, verify_user, get_user_id
 
+
+def test_get_user_id_success(test_db):
+    user_data = {
+        'username': 'testuser',
+        'password': 'TestPass123',
+        'first_name': 'Edward',
+        'last_name': 'Wong',
+        'date_of_birth': '2000-05-01'
+    }
+    create_new_user(user_data, conn=test_db)
+    result = get_user_id('testuser', conn=test_db)
+    assert result == 1
+
+def test_get_user_id_not_found(test_db):
+    result = get_user_id('not_a_user', conn=test_db)
+    assert result is None
+
+def test_verify_user_success(test_db):
+    user_data = {
+        'username': 'testuser',
+        'password': 'TestPass123',
+        'first_name': 'Kagome',
+        'last_name': 'Higurashi',
+        'date_of_birth': '1990-07-16'
+    }
+    create_new_user(user_data, conn=test_db)
+    result = verify_user(user_data['username'], user_data['password'], conn = test_db)
+    assert result == True
+
+def test_verify_user_wrong_password(test_db):
+    user_data = {
+        'username': 'testuser',
+        'password': 'TestPass123',
+        'first_name': 'Kagome',
+        'last_name': 'Higurashi',
+        'date_of_birth': '1990-07-16'
+    }
+    create_new_user(user_data, conn=test_db)
+    result = verify_user(user_data['username'], "WrongPass345", conn=test_db)
+    assert result == False
+
+def test_verify_user_nonexistent_user(test_db):
+    result = verify_user('nonexistent_user', 'TestPass123', conn=test_db)
+    assert result == False
 
 def test_create_new_user_success(test_db):
     user_data = {
@@ -30,28 +74,4 @@ def test_create_new_user_duplicate(test_db):
     }
     create_new_user(user_data_first, conn = test_db)
     result = create_new_user(user_data_second, conn = test_db)
-    assert result == False
-
-def test_verify_user_success(test_db):
-    user_data = {
-        'username': 'testuser',
-        'password': 'TestPass123',
-        'first_name': 'Kagome',
-        'last_name': 'Higurashi',
-        'date_of_birth': '1990-07-16'
-    }
-    create_new_user(user_data, conn=test_db)
-    result = verify_user(user_data['username'], user_data['password'], conn = test_db)
-    assert result == True
-
-def test_verify_user_wrong_password(test_db):
-    user_data = {
-        'username': 'testuser',
-        'password': 'TestPass123',
-        'first_name': 'Kagome',
-        'last_name': 'Higurashi',
-        'date_of_birth': '1990-07-16'
-    }
-    create_new_user(user_data, conn=test_db)
-    result = verify_user(user_data['username'], "WrongPass345", conn=test_db)
     assert result == False
