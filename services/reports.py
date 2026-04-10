@@ -30,3 +30,14 @@ def get_medication_history(user_id, start_date=None, end_date=None, conn=None):
         ''', (user_id, start_date, end_date))
         
         return cursor.fetchall(), start_date, end_date
+
+def get_patient_dob(user_id, conn=None):
+    """Fetch the patient's date of birth for report header."""
+    if conn is None:
+        from database.db_connection import get_connection
+        conn = get_connection()
+
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT date_of_birth FROM users WHERE user_id = ?", (user_id,))
+        return cursor.fetchone()[0]

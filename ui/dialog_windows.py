@@ -15,7 +15,7 @@ import csv
 import os
 from ui.date_panel import DateSelectionPanel
 from services.reports import get_medication_history
-from services.pdf_generator import generate_pdf_report
+from utils.pdf_generator import generate_pdf_report
 from services.medication import add_medication, get_medications_for_management
 
 

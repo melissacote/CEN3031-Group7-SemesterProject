@@ -2,7 +2,7 @@
 from xhtml2pdf import pisa
 from jinja2 import Template
 from datetime import datetime
-from services.reports import get_medication_history
+from services.reports import get_medication_history, get_patient_dob
 
 def generate_pdf_report(user_id, patient_name, start_date=None, end_date=None, output_path="Patient_Report.pdf"):
     # Fetch the data
@@ -20,6 +20,7 @@ def generate_pdf_report(user_id, patient_name, start_date=None, end_date=None, o
     # Inject the data into the HTML
     html_content = template.render(
         patient_name=patient_name,
+        patient_dob=get_patient_dob(user_id),
         start_date=final_start,
         end_date=final_end,
         generation_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
