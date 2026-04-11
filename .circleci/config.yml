@@ -19,6 +19,9 @@ jobs:
       - checkout
       # Install dependencies to container
       - run:
+          name: Install system dependencies for PDF generation
+          command: sudo apt-get update && sudo apt-get install -y libcairo2-dev pkg-config python3-dev
+      - run:
           name: Install dependencies
           command: pip install -r requirements.txt
       # Run tests

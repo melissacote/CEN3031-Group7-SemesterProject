@@ -1,7 +1,8 @@
 PyQt6==6.10.2
 pandas
-reportlab
 matplotlib
 numpy
 argon2-cffi
+xhtml2pdf
+jinja2
 pytest # dev-only dependency
