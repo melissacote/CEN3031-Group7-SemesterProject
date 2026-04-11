@@ -270,7 +270,7 @@ class MedicationReportDialog(QDialog):
         start_date, end_date = self.date_panel.get_selected_dates()
 
         # Open a "Save As" file dialog
-        default_filename = f"{self.username}_Compliance_Report.pdf"
+        default_filename = f"{self.username}_Adherence_Report.pdf"
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Save Patient Report", 
             os.path.join(os.path.expanduser("~"), "Desktop", default_filename),
