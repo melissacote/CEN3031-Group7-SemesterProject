@@ -1,5 +1,6 @@
-# Database file
+# Database and config files
 *.db
+config.json
 
 # Cache files
 __pycache__/
