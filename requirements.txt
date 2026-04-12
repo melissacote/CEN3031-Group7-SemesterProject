@@ -5,4 +5,5 @@ numpy
 argon2-cffi
 xhtml2pdf
 jinja2
+opencv-python==4.13.0.92
 pytest # dev-only dependency
