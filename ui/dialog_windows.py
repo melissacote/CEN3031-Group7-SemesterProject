@@ -9,12 +9,13 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
     QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget, QHeaderView
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 import pandas as pd
 import csv
 import os
 from ui.date_panel import DateSelectionPanel
 from services.reports import get_medication_history
+from ui.scanner_window import OCRScannerDialog
 from utils.pdf_generator import generate_pdf_report
 from services.medication import add_medication, get_medications_for_management
 
@@ -68,6 +69,11 @@ class AddMedicationDialog(QDialog):
         self.med_list.setMinimumHeight(150)
         layout.addWidget(self.med_list)
 
+        # Button to open the webcam scanner dialog
+        self.scan_btn = QPushButton("Auto-fill with webcam")
+        self.scan_btn.clicked.connect(self.open_scanner)
+        layout.addWidget(self.scan_btn)
+
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
@@ -116,6 +122,33 @@ class AddMedicationDialog(QDialog):
         self.reload_list()
         self.medication_saved.emit()
 
+    def open_scanner(self):
+        """
+        The webcam scanner dialog is responsible for the entire scanning and parsing process.
+        It will return a dictionary of the parsed data, which we can then use to auto-fill the form fields. 
+        This keeps the scanning logic nicely encapsulated within the OCRScannerDialog class.
+        """
+        dlg = OCRScannerDialog(self)
+        
+        if dlg.exec():
+            data = dlg.scanned_data
+            
+            # Populate the fields with whatever it found.
+            
+            if 'medication_name' in data:
+                self.input_name.setText(data['medication_name'])
+            
+            if 'dosage' in data:
+                self.input_dosage.setText(data['dosage'])
+                
+            if 'frequency' in data:
+                self.input_frequency.setText(data['frequency'])
+
+            if 'route' in data:
+                self.input_route.setText(data['route'])
+
+            if 'scheduled_time' in data:
+                self.input_scheduled_time.setText(data['scheduled_time'])
 class ProfileWindow(QDialog):
     """Displays the logged-in user's full profile information."""
 

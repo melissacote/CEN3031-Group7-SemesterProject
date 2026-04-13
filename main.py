@@ -6,11 +6,10 @@ This script initializes the database and launches the login window.
 """
 
 import sys
-from PyQt6.QtCore import QSize
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QMenuBar
+from PyQt6.QtWidgets import QApplication
 from database.db_connection import create_tables, get_connection
 from ui.login_window import LoginWindow
-from ui.main_window import MainWindow
+from scripts.seed_fda_data import is_database_seeded, seed_data
 
 # HELPER: Grab the ID of the fake user from test_logic.py
 def get_test_user_id():
@@ -19,6 +18,24 @@ def get_test_user_id():
         cursor.execute("SELECT user_id FROM users WHERE username='test_patient'")
         result = cursor.fetchone()
         return result[0] if result else None
+
+# HELPER: Run startup checks to ensure database is seeded and ready    
+def run_startup_checks():
+    """
+    Ensures the local environment is ready. 
+    If product.txt has been updated or DB is empty, it re-seeds.
+    """
+    print("[SYSTEM] Running startup diagnostic...")
+    
+    # Ensure tables exist (users, medications, and fda_medications)
+    create_tables() 
+    
+    if not is_database_seeded():
+        print("[SYSTEM] FDA Database missing or outdated. Initializing local seed...")
+        seed_data()
+        print("[SYSTEM] Seed complete.")
+    else:
+        print("[SYSTEM] Local FDA Knowledge Base: READY.")
 
 if __name__ == "__main__":
     """
@@ -38,6 +55,7 @@ if __name__ == "__main__":
 
     # Instantiate application using the given arguments
     app = QApplication(sys.argv)
+    run_startup_checks()
 
     app.setStyle("Fusion") # Modern application-wide style
 
