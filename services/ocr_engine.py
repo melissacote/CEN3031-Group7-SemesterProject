@@ -66,13 +66,19 @@ def parse_medication_label(raw_text):
     ]
 
     found_dosages = []
+    seen_normalized = set()
     for pattern in dosage_patterns:
         matches = re.findall(pattern, clean_text)
         for match in matches:
-            # Apply OCR typo fixes ONLY to the dosage text, not the drug name!
+            # Apply OCR typo fixes
             fixed_dosage = match.upper().replace('O', '0').replace('A', '4').replace('S', '5').replace('I', '1').replace('L', '1')
-            if fixed_dosage not in found_dosages: # Prevent duplicates
-                found_dosages.append(fixed_dosage.lower())
+            
+            # Remove all spaces to check for true duplicates (makes "300 MG" == "300MG")
+            normalized = fixed_dosage.replace(" ", "")
+            
+            if normalized not in seen_normalized:
+                seen_normalized.add(normalized)
+                found_dosages.append(fixed_dosage.lower().strip())
 
     if found_dosages:
         results['dosage'] = " / ".join(found_dosages)
