@@ -73,3 +73,31 @@ def capture_frame(camera: int) -> np.ndarray | None:
     except Exception:
         return None
 
+def initialize_camera_stream(camera_index: int) -> cv2.VideoCapture | None:
+    """
+    Initializes a continuous video stream optimized for OCR scanning.
+    Leaves the camera open so a thread can continuously read frames.
+    :param camera_index: Index of the camera to open.
+    :return: An opened cv2.VideoCapture object, or None if failed.
+    """
+    try:
+        # CAP_DSHOW to prevent startup lag (Windows specific)
+        cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+        
+        if not cap.isOpened():
+            return None
+            
+        # Request the high-fidelity resolution for OCR
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        
+        # Verify what the hardware driver ACTUALLY granted
+        actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
+        print(f"[Hardware Setup] Camera {camera_index} | Requested: 1920x1080 | Actual Output: {actual_width}x{actual_height}")
+        
+        return cap
+    except Exception as e:
+        print(f"[Hardware Error] Could not initialize stream: {e}")
+        return None

@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 
 from services.ocr_engine import extract_text_from_frame, parse_medication_label
-from utils.camera import load_camera_preference
+from utils.camera import load_camera_preference, initialize_camera_stream
 
 class VideoThread(QThread):
     """
@@ -23,11 +23,11 @@ class VideoThread(QThread):
 
     def run(self):
         """Captures video frames and calculates focus score in real-time."""
-        cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
-        
-        # Force HD Resolution for better OCR results
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        cap = initialize_camera_stream(self.camera_index)
+
+        if cap is None:
+            print(f"Error: Could not open camera {self.camera_index}")
+            return
         
         while self._run_flag:
             ret, cv_img = cap.read()
