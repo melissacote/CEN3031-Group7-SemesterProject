@@ -1,7 +1,7 @@
 import pytest
 
 from services.medication import get_user_medications, add_medication, get_medications_for_management, \
-    get_todays_medications_sorted
+    get_todays_medications_sorted, update_medication
 from services.user import create_new_user, get_user_id
 
 
@@ -105,3 +105,31 @@ def test_get_medications_for_management_success(test_db):
     assert result[0]['name'] == 'Aspirin'
     assert result[1]['name'] == 'Lisinopril'
 
+def test_update_medication(test_db):
+    user_data = {
+        'username': 'testuser',
+        'password': 'TestPass123',
+        'first_name': 'Magi',
+        'last_name': 'Karp',
+        'date_of_birth': '1985-11-03'
+    }
+    test_username = user_data['username']
+    create_new_user(user_data, conn = test_db)
+    test_id = get_user_id(test_username, conn = test_db)
+    add_medication(test_id, "Lisinopril", "10 mg", "Oral", "Once Daily", "09:00 AM", conn = test_db)
+    add_medication(test_id, "Aspirin", "81 mg", "Oral", "Once Daily", "08:00 AM", conn = test_db)
+
+    # User's medications before update
+    before = get_medications_for_management(test_id, conn = test_db)
+    assert len(before) == 2
+    assert before[0]['name'] == 'Aspirin'
+    med_id = before[0]['medication_id']
+
+    # Edit Aspirin info and check for successful update
+    update_medication(med_id, "Aspirin Low Dose", "81 mg chewable", "Oral with food", "Twice daily", "Morning,Evening", conn = test_db)
+    after = get_medications_for_management(test_id, conn = test_db)
+    assert after[0]['name'] == 'Aspirin Low Dose'
+    assert after[0]['dosage'] == '81 mg chewable'
+    assert after[0]['route'] == 'Oral with food'
+    assert after[0]['frequency'] == 'Twice daily'
+    assert after[0]['scheduled_time'] == 'Morning,Evening'

@@ -81,3 +81,20 @@ def get_medications_for_management(user_id, conn: sqlite3.Connection | None = No
         ''', (user_id,))
         rows = cursor.fetchall()
         return [dict(zip(["medication_id", "name", "dosage", "route", "frequency", "scheduled_time", "prescriber", "special_instructions"], row)) for row in rows]
+
+def update_medication(medication_id, medication_name, dosage, route, frequency, scheduled_time, conn: sqlite3.Connection | None = None):
+    """
+    Update an exisitng medication record.
+
+    NOTE: dosage and route are current DB column names (UI uses strength / directions).
+    """
+    if conn is None:
+        conn = get_connection()
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE medications
+            SET medication_name=?, dosage=?, route=?, frequency=?, scheduled_time=?
+            WHERE medication_id=?
+        ''', (medication_name, dosage, route, frequency, scheduled_time, medication_id))
+        conn.commit()
