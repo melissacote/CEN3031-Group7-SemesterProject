@@ -63,6 +63,11 @@ class AddMedicationDialog(QDialog):
         save_btn.clicked.connect(self.on_save)
         layout.addWidget(save_btn)
 
+        # Warning label about verifying scanned data since OCR is not 100% accurate. This is crucial for patient safety and to set proper expectations.
+        self.warning_label = QLabel("⚠️ Please verify all scanned instructions against the physical bottle.")
+        self.warning_label.setStyleSheet("color: #d35400; font-weight: bold; font-size: 12px;")
+        layout.addWidget(self.warning_label)
+
         # List of medications already saved for this user
         layout.addWidget(QLabel("Saved medications"))
         self.med_list = QListWidget()
@@ -123,32 +128,48 @@ class AddMedicationDialog(QDialog):
         self.medication_saved.emit()
 
     def open_scanner(self):
-        """
-        The webcam scanner dialog is responsible for the entire scanning and parsing process.
-        It will return a dictionary of the parsed data, which we can then use to auto-fill the form fields. 
-        This keeps the scanning logic nicely encapsulated within the OCRScannerDialog class.
-        """
+        """Opens the webcam scanner dialog and waits for user capture."""
         dlg = OCRScannerDialog(self)
         
-        if dlg.exec():
-            data = dlg.scanned_data
-            
-            # Populate the fields with whatever it found.
-            
-            if 'medication_name' in data:
-                self.input_name.setText(data['medication_name'])
-            
-            if 'dosage' in data:
-                self.input_dosage.setText(data['dosage'])
-                
-            if 'frequency' in data:
-                self.input_frequency.setText(data['frequency'])
+        # When the dialog closes with an "Accept" signal...
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            # Pass the data to our dedicated form handler
+            self.autofill_form(dlg.scanned_data)
+    
+    def autofill_form(self, scanned_data):
+        """
+        Receives the dictionary from the OCR scanner and populates the UI.
+        Crucial: Clears old data first to prevent state leaks!
+        """
+        print(f"Autofilling with: {scanned_data}")
 
-            if 'route' in data:
-                self.input_route.setText(data['route'])
+        # Wipe the form clean of any previous manual entries or old scans
+        self.input_name.clear()
+        self.input_dosage.clear()
+        self.input_frequency.clear()
+        self.input_route.clear()
+        self.input_scheduled_time.clear()
+        self.input_prescriber.clear()
+        self.input_special_instructions.clear()
 
-            if 'scheduled_time' in data:
-                self.input_scheduled_time.setText(data['scheduled_time'])
+        # Inject the highly accurate AI data
+        if 'medication_name' in scanned_data:
+            self.input_name.setText(scanned_data['medication_name'])
+            
+        if 'dosage' in scanned_data:
+            self.input_dosage.setText(scanned_data['dosage'])
+            
+        if 'frequency' in scanned_data:
+            self.input_frequency.setText(scanned_data['frequency'])
+            
+        if 'route' in scanned_data:
+            self.input_route.setText(scanned_data['route'])
+        
+        if 'scheduled_time' in scanned_data:
+            self.input_scheduled_time.setText(scanned_data['scheduled_time'])
+
+        if 'special_instructions' in scanned_data:
+            self.input_special_instructions.setText(scanned_data['special_instructions'])
 class ProfileWindow(QDialog):
     """Displays the logged-in user's full profile information."""
 

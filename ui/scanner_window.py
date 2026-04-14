@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 
 from services.ocr_engine import extract_text_from_frame, parse_medication_label
-from utils.camera import load_camera_preference, initialize_camera_stream
+from utils.camera import load_camera_preference, initialize_camera_stream, crop_to_roi, preprocess_for_ocr
 
 class VideoThread(QThread):
     """
@@ -18,8 +18,10 @@ class VideoThread(QThread):
 
     def __init__(self, camera_index=0):
         super().__init__()
+        self.daemon = True
         self._run_flag = True
         self.camera_index = camera_index
+        self.setTerminationEnabled(True)
 
     def run(self):
         """Captures video frames and calculates focus score in real-time."""
@@ -44,7 +46,9 @@ class VideoThread(QThread):
 
     def stop(self):
         self._run_flag = False
-        self.wait()
+        # Give the thread a moment to exit the loop
+        if not self.wait(500): # Wait 500ms
+            self.terminate()   # Force kill if it doesn't stop gracefully
 
 class OCRScannerDialog(QDialog):
     """
@@ -108,9 +112,36 @@ class OCRScannerDialog(QDialog):
         """Receives a new frame from the video thread, converts it to QImage, and updates the QLabel.
         Also stores the current frame for OCR processing when the button is clicked.
         """
-        self.current_frame = cv_img
+        # Save a clean, unaltered copy of the frame for the OCR engine
+        self.current_frame = cv_img.copy()
+
+        # Get frame dimensions to calculate the center
+        h, w, ch = cv_img.shape
+
+        # Define the exact dimensions used in your camera.crop_to_roi() function
+        crop_width = 800
+        crop_height = 400
+        
+        # Calculate the center box coordinates
+        start_x = (w // 2) - (crop_width // 2)
+        start_y = (h // 2) - (crop_height // 2)
+        end_x = start_x + crop_width
+        end_y = start_y + crop_height
+
+        # Draw the targeting box on the UI frame (Cyan color)
+        cv2.rectangle(cv_img, (start_x, start_y), (end_x, end_y), (255, 255, 0), 4)
+        
+        # Dim the background outside the box to make the target area pop
+        mask = np.zeros_like(cv_img)
+        cv2.rectangle(mask, (start_x, start_y), (end_x, end_y), (255, 255, 255), -1)
+        cv_img = np.where(mask == np.array([255, 255, 255]), cv_img, cv2.addWeighted(cv_img, 0.4, np.zeros_like(cv_img), 0.6, 0))
+
+        # Add instructions above the box
+        cv2.putText(cv_img, "Align Medication Label Here", (start_x, start_y - 20), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 0), 3)
+
+        # Convert the marked-up frame to PyQt format for UI display
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_image.shape
         qt_img = QImage(rgb_image.data, w, h, ch * w, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_img).scaled(640, 480, Qt.AspectRatioMode.KeepAspectRatio)
         self.image_label.setPixmap(pixmap)
@@ -120,10 +151,23 @@ class OCRScannerDialog(QDialog):
         if self.current_frame is not None:
             self.capture_btn.setText("Analyzing Label...")
             self.capture_btn.setEnabled(False)
+            self.status_label.setText("Processing OCR... Please wait.")
+            # Crop to the center Region of Interest to remove background noise
+            cropped_frame = crop_to_roi(self.current_frame)
             
-            raw_text = extract_text_from_frame(self.current_frame)
+            # Apply CLAHE contrast fixing to destroy webcam glare
+            clean_frame = preprocess_for_ocr(cropped_frame)
+            
+            # Send the highly optimized frame to PaddleOCR
+            raw_text = extract_text_from_frame(clean_frame)
+            
+            # Parse the text using the multi-stage security heuristics
             ocr_results = parse_medication_label(raw_text)
             
+            # Completely wipe out any data from previous scans
+            self.scanned_data.clear() 
+            
+            # Now save the fresh data
             self.scanned_data.update(ocr_results)
             
             if 'medication_name' in self.scanned_data:
@@ -138,5 +182,9 @@ class OCRScannerDialog(QDialog):
 
     def closeEvent(self, event):
         """Ensures the video thread is properly stopped when the dialog is closed."""
-        self.thread.stop()
+        # If the scanner dialog was left open, tell it to stop
+        if hasattr(self, 'scanner_dialog') and self.scanner_dialog.isVisible():
+            self.scanner_dialog.thread.stop()
+    
+        # Standard exit
         event.accept()

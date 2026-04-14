@@ -90,6 +90,9 @@ def initialize_camera_stream(camera_index: int) -> cv2.VideoCapture | None:
         # Request the high-fidelity resolution for OCR
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+        # Disable hardware Auto-Focus (Locks focus to infinity/fixed)
+        cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
         
         # Verify what the hardware driver ACTUALLY granted
         actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -101,3 +104,31 @@ def initialize_camera_stream(camera_index: int) -> cv2.VideoCapture | None:
     except Exception as e:
         print(f"[Hardware Error] Could not initialize stream: {e}")
         return None
+
+def crop_to_roi(frame, crop_width=800, crop_height=400):
+    """Crops the frame to the center Region of Interest (ROI)."""
+    h, w = frame.shape[:2]
+    
+    # Calculate center coordinates
+    start_x = (w // 2) - (crop_width // 2)
+    start_y = (h // 2) - (crop_height // 2)
+    end_x = start_x + crop_width
+    end_y = start_y + crop_height
+    
+    # Slice the numpy array
+    return frame[start_y:end_y, start_x:end_x]
+
+def preprocess_for_ocr(frame):
+    """Applies Grayscale and CLAHE to enhance text readability against glare."""
+    # Convert to Grayscale (OCR doesn't need color, and it reduces array size by 3x)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # Apply CLAHE
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    
+    # PaddleOCR expects a 3-channel image even if it's black and white
+    # So we stack the grayscale image back to 3 channels
+    final_img = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
+    
+    return final_img

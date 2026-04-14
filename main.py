@@ -55,6 +55,7 @@ if __name__ == "__main__":
 
     # Instantiate application using the given arguments
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(True) # Ensure OS kills the process on exit
     run_startup_checks()
 
     app.setStyle("Fusion") # Modern application-wide style
@@ -65,6 +66,9 @@ if __name__ == "__main__":
 
     # Display the UI window
     login_window.show()
+
+    # the application forces all children to die.
+    app.aboutToQuit.connect(login_window.close)
 
     # Quit code execution upon exit.
     sys.exit(app.exec())
