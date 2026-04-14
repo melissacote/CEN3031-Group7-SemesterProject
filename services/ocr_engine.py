@@ -20,8 +20,7 @@ COMBINED_NOISE = NOISE_WORDS | PII_PREFIXES | PHARMACIES | MANUFACTURERS
 
 FREQUENCIES = ["three times a day", "twice a day", "every 12 hours", "every 10 hours", "every 8 hours", "every 6 hours", "every 2 hours", "every 4 hours", "each week","everyday", "daily", "as needed"]
 TIMES = ["bedtime", "morning", "evening", "with meals", "before meals"]
-ROUTES = ["oral", "mouth", "topical", "ophthalmic", "rectal", "injection"]
-
+ROUTES = ["oral", "mouth", "sublingual", "under the tongue", "under tongue", "enteral", "feeding tube", "topical", "transdermal", "patch", "ophthalmic", "eye", "otic", "ear", "nasal", "nares", "nose", "nostril", "rectal", "rectum", "vaginal", "vagina", "inhalation", "nebulizer", "injection", "intravenous", "iv", "subcutaneous", "sq", "subq", "subcut", "intramuscular"]
 def load_fda_data():
     """Loads FDA data from product.txt for name and route matching."""
     drug_names = set()

@@ -5,6 +5,7 @@ numpy==1.26.4
 argon2-cffi
 xhtml2pdf
 jinja2
+setuptools
 paddlepaddle==2.6.2
 paddleocr==2.7.3
 thefuzz==0.22.1
