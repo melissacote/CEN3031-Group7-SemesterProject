@@ -13,8 +13,8 @@ def find_available_cameras() -> list[int]:
     :return: List of available cameras.
     """
     cameras = []
-    # Check up to 4 ports, but use CAP_DSHOW to prevent the massive timeout lag on Windows
-    for i in range(4):
+    # Check up to 3 ports, but use CAP_DSHOW to prevent the massive timeout lag on Windows
+    for i in range(3):
         cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
         if cap.isOpened():
             cameras.append(i)
