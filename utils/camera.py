@@ -1,8 +1,11 @@
 import cv2
 import json
 import numpy as np
+import os
 
-CONFIG_PATH = "config.json"
+# Safely anchor to the root directory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 
 def find_available_cameras() -> list[int]:
     """
@@ -10,8 +13,9 @@ def find_available_cameras() -> list[int]:
     :return: List of available cameras.
     """
     cameras = []
-    for i in range(3):
-        cap = cv2.VideoCapture(i)
+    # Check up to 4 ports, but use CAP_DSHOW to prevent the massive timeout lag on Windows
+    for i in range(4):
+        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
         if cap.isOpened():
             cameras.append(i)
             cap.release()
@@ -25,7 +29,7 @@ def save_camera_preference(camera_index: int) -> bool:
     """
     camera = {"preferred_camera_index": camera_index}
     try:
-        with open("config.json", "w") as file:
+        with open(CONFIG_PATH, "w") as file:
             json.dump(camera, file)
         return True
     except Exception:
@@ -37,7 +41,7 @@ def load_camera_preference() -> int | None:
     :return: Index of preferred camera.
     """
     try:
-        with open("config.json", "r") as file:
+        with open(CONFIG_PATH, "r") as file:
             config_file = json.load(file)
             return config_file["preferred_camera_index"]
     except Exception:
