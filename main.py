@@ -46,7 +46,7 @@ if __name__ == "__main__":
     # Validate if the test user exists in the DB
     test_user_id = get_test_user_id()
 
-    # For testing only, change as needed. Keep False for production to prevent crashes!
+    # For testing only, change as needed. Keep False for production to prevent crashes
     test_mode = False
     if test_mode and test_user_id is None:
         print("Warning: Test user not found. Booting normally instead of exiting.")

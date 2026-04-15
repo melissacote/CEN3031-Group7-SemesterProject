@@ -18,19 +18,38 @@ PHARMACIES = {"cvs", "walgreens", "publix", "walmart", "riteaid", "kroger", "tar
 MANUFACTURERS = {"teva", "aurobindo", "amneal", "pfizer", "mylan", "lannett", "zydus", "sandoz"}
 COMBINED_NOISE = NOISE_WORDS | PII_PREFIXES | PHARMACIES | MANUFACTURERS
 
-FREQUENCIES = ["three times a day", "twice a day", "every 12 hours", "every 10 hours", "every 8 hours", "every 6 hours", "every 2 hours", "every 4 hours", "each week","everyday", "daily", "as needed"]
 TIMES = ["bedtime", "morning", "evening", "with meals", "before meals"]
 
 FREQUENCY_MAP = {
-    "daily": "Once daily", "everyday": "Once daily", "every day": "Once daily", "once a day": "Once daily",
-    "twice a day": "Twice daily", "bid": "Twice daily", "two times": "Twice daily",
-    "three times": "Three times daily", "tid": "Three times daily",
-    "four times": "Four times daily", "qid": "Four times daily",
-    "every 12 hours": "Twice daily", "every 8 hours": "Three times daily", 
-    "every 6 hours": "Four times daily", "every 4 hours": "Four times daily",
     "every other day": "Every other day",
-    "weekly": "Weekly", "once a week": "Weekly",
-    "as needed": "As needed", "prn": "As needed"
+    "every 12 hours": "Twice daily", 
+    "every 8 hours": "Three times daily", 
+    "every 6 hours": "Four times daily", 
+    "every 4 hours": "Four times daily",
+    "three times a day": "Three times daily",
+    "four times a day": "Four times daily",
+    "twice a day": "Twice daily",
+    "once a day": "Once daily",
+    "three times daily": "Three times daily",
+    "four times daily": "Four times daily",
+    "twice daily": "Twice daily",
+    "three times": "Three times daily",
+    "four times": "Four times daily",
+    "two times": "Twice daily",
+    "3 times": "Three times daily",
+    "4 times": "Four times daily",
+    "2 times": "Twice daily",
+    "1 time": "Once daily",
+    "once a week": "Weekly",
+    "every day": "Once daily",
+    "everyday": "Once daily",
+    "as needed": "As needed", 
+    "daily": "Once daily", 
+    "weekly": "Weekly", 
+    "bid": "Twice daily", 
+    "tid": "Three times daily",
+    "qid": "Four times daily", 
+    "prn": "As needed"
 }
 
 ROUTE_MAP = {
@@ -84,17 +103,13 @@ def extract_text_from_frame(frame):
     
     if result and result[0]:
         for line in result[0]:
-            box = line[0]           # [X, Y] coordinates
-            text = line[1][0]       # line[1][0] is the recognized text string
-            confidence = line[1][1] # AI certainty score
-            
-            # Confidence Thresholding: ignore smudges and low-light artifacts
+            box = line[0]           
+            text = line[1][0]       
+            confidence = line[1][1] 
             if confidence > 0.75: 
-                # Spatial Geometry: Calculate vertical center
                 y_center = sum([p[1] for p in box]) / 4
                 valid_lines.append((y_center, text))
                 
-    # Sort text physically top-to-bottom
     valid_lines.sort(key=lambda x: x[0])
     raw_text = " ".join([line[1] for line in valid_lines])
     return raw_text.strip()
@@ -104,22 +119,19 @@ def parse_medication_label(raw_text, patient_name_words=None):
     if patient_name_words is None:
         patient_name_words = []
 
-    # Normalization: keep decimals, slashes, and COMMAS
     clean_text = re.sub(r'[^\w\s\.\-\/,]', ' ', raw_text)
     search_text = clean_text.lower()
     results = {}
 
-    # Free text special instructions extraction
     direction_pattern = r'(?i)\b(take|apply|use|give|inhale|insert|instill|inject|place|chew|dissolve)\b.*?(?:(?=\b(?:qty|rx|dr\.|dr|md|patient|discard|refill|expires|date)\b)|$)'
     direction_match = re.search(direction_pattern, raw_text)
     if direction_match:
         results['special_instructions'] = direction_match.group(0).strip()
 
-    # Dosage extraction with multiple patterns (e.g., 500mg, 1.25mg, 50,000 UNIT)
     dosage_patterns = [
-        r'(?i)(\d+[\.,]\d+\s*(?:M[G6]|MC[G6]|ML|G))',        # Decimals: 1.25mg
-        r'(?i)(\d+[\d,]*\s*(?:UNIT|UNITS|IU))',         # Units: 50,000 UNIT
-        r'(?i)\b(\d+\s*(?:M[G6]|MC[G6]|ML|G))\b'                  # Standard: 500mg
+        r'(?i)(\d+[\.,]\d+\s*(?:M[G6]|MC[G6]|ML|G))',        
+        r'(?i)(\d+[\d,]*\s*(?:UNIT|UNITS|IU))',         
+        r'(?i)\b(\d+\s*(?:M[G6]|MC[G6]|ML|G))\b'                  
     ]
 
     found_dosages = []
@@ -127,12 +139,8 @@ def parse_medication_label(raw_text, patient_name_words=None):
     for pattern in dosage_patterns:
         matches = re.findall(pattern, clean_text)
         for match in matches:
-            # Apply OCR typo fixes
             fixed_dosage = match.upper().replace('O', '0').replace('A', '4').replace('S', '5').replace('I', '1').replace('L', '1')
-            
-            # Remove all spaces to check for true duplicates (makes "300 MG" == "300MG")
             normalized = fixed_dosage.replace(" ", "")
-            
             if normalized not in seen_normalized:
                 seen_normalized.add(normalized)
                 found_dosages.append(fixed_dosage.lower().strip())
@@ -140,7 +148,6 @@ def parse_medication_label(raw_text, patient_name_words=None):
     if found_dosages:
         results['dosage'] = " / ".join(found_dosages)
 
-    # Extract Route, Frequency, Timing with direct and safe dictionary matching
     for key, canonical_freq in FREQUENCY_MAP.items():
         if re.search(r'\b' + re.escape(key) + r'\b', search_text):
             results['frequency'] = canonical_freq
@@ -158,48 +165,64 @@ def parse_medication_label(raw_text, patient_name_words=None):
 
     safe_text = search_text.replace("directed", "")
 
-    # Fuzzy matching (Route, Frequency, Time)
     if 'route' not in results and VALID_ROUTES:
         route, score = process.extractOne(safe_text, VALID_ROUTES, scorer=fuzz.partial_ratio)
         if score > 80: results['route'] = route.capitalize()
-
-    # Throttled to >= 90 score to prevent hallucinating instructions unless certain
-    if 'frequency' not in results:
-        freq, f_score = process.extractOne(safe_text, FREQUENCIES, scorer=fuzz.partial_ratio)
-        if f_score >= 90: results['frequency'] = freq.capitalize()
 
     if 'scheduled_time' not in results:
         time, t_score = process.extractOne(safe_text, TIMES, scorer=fuzz.partial_ratio)
         if t_score >= 90: results['scheduled_time'] = time.capitalize()
 
-    # Fuzzy matching (Medication Name)
-    # Added a filter to ignore "MG" or "UNIT" as a drug name candidate
+    # --- UPDATED N-GRAM MEDICATION NAME EXTRACTION ---
     dosage_keywords = {"MG", "MCG", "ML", "UNIT", "UNITS", "IU"}
-    words = re.findall(r'\b[A-Za-z0-9]{2,}\b', clean_text.upper()) # Lowered to 4 to catch short names
+    
+    # \b[A-Za-z0-9]+\b grabs ALL alphanumeric words, including single letters like "D" in Vitamin D3
+    raw_words = re.findall(r'\b[A-Za-z0-9]+\b', clean_text.upper()) 
+    
+    # Generate 1-word, 2-word, and 3-word combinations (N-Grams)
+    candidates = []
+    for i in range(len(raw_words)):
+        candidates.append(raw_words[i])
+        if i < len(raw_words) - 1:
+            candidates.append(f"{raw_words[i]} {raw_words[i+1]}")
+        if i < len(raw_words) - 2:
+            candidates.append(f"{raw_words[i]} {raw_words[i+1]} {raw_words[i+2]}")
+
+    # Sort candidates by length (longer phrases first) to prioritize multi-word drug names over single words
+    candidates.sort(key=lambda x: len(x.split()), reverse=True)
+
     best_name = None
     high_score = 0
 
-    for word in words:
-        word_lower = word.lower()
-        # Avoid matching keywords as drug names (Includes PII/PHI dynamic blacklists)
-        if (word_lower in COMBINED_NOISE or 
-            word_lower in FREQUENCY_MAP or 
-            word.upper() in dosage_keywords or 
-            word_lower in patient_name_words): 
+    for phrase in candidates:
+        phrase_lower = phrase.lower()
+        phrase_upper = phrase.upper()
+        
+        # Skip pure junk phrases (like a single floating "D" that isn't attached to anything)
+        if len(phrase) < 3 and " " not in phrase and not any(char.isalpha() for char in phrase):
+            continue
+            
+        # Avoid matching keywords by breaking the phrase down and checking intersections
+        phrase_words_lower = set(phrase_lower.split())
+        phrase_words_upper = set(phrase_upper.split())
+        
+        if (phrase_words_lower.intersection(COMBINED_NOISE) or 
+            phrase_words_lower.intersection(FREQUENCY_MAP) or 
+            phrase_words_upper.intersection(dosage_keywords) or 
+            phrase_words_lower.intersection(set(patient_name_words))): 
             continue
 
-        # First check for exact match in the set (fast)
-        if word.upper() in ALL_DRUG_NAMES_SET:
-            best_name = word.title()
+        if phrase_upper in ALL_DRUG_NAMES_SET:
+            best_name = phrase.title()
             high_score = 100
             break
             
-        name, score = process.extractOne(word, ALL_DRUG_NAMES, scorer=fuzz.ratio)
+        name, score = process.extractOne(phrase, ALL_DRUG_NAMES, scorer=fuzz.ratio)
         if score > 85:
-            # PENALTY: Prevent hallucinating Extended Release versions
-            if " ER" in name and "ER" not in word.upper():
+            # ER/XR Hallucination Penalty
+            if " ER" in name and "ER" not in phrase_upper:
                 score -= 20
-            if " XR" in name and "XR" not in word.upper():
+            if " XR" in name and "XR" not in phrase_upper:
                 score -= 20
 
             if score > high_score:

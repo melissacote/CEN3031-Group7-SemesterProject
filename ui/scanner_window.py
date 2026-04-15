@@ -59,7 +59,10 @@ class VideoThread(QThread):
                 # Emit frame to UI
                 self.change_pixmap_signal.emit(cv_img)
         
-        cap.release()
+        if cap.isOpened():
+            # Restore OS-level Auto-Focus BEFORE releasing the hardware lock
+            # cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
+            cap.release()
 
     def stop(self):
         self._run_flag = False

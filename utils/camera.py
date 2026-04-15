@@ -21,19 +21,37 @@ def find_available_cameras() -> list[int]:
             cap.release()
     return cameras
 
-def save_camera_preference(camera_index: int) -> bool:
+def save_camera_preference(camera_index: int, width: int = 1920, height: int = 1080, fps: int = 30, autofocus: bool = False) -> bool:
     """
     Takes a camera index and saves it to JSON config file.
-    :param camera_index: The index of the camera to save. 
+    :param camera_index: The index of the camera to save.
+    :param width: The width of the video stream.
+    :param height: The height of the video stream.
+    :param fps: The frames per second of the video stream.
+    :param autofocus: Whether to enable autofocus.
     :return: True if preference successfully saved to config file, False otherwise.
     """
-    camera = {"preferred_camera_index": camera_index}
+    config = {
+        "preferred_camera_index": camera_index,
+        "width": width,
+        "height": height,
+        "fps": fps,
+        "autofocus": autofocus
+    }
     try:
         with open(CONFIG_PATH, "w") as file:
-            json.dump(camera, file)
+            json.dump(config, file)
         return True
     except Exception:
         return False
+
+def load_full_camera_config() -> dict:
+    """Loads the complete camera configuration."""
+    try:
+        with open(CONFIG_PATH, "r") as file:
+            return json.load(file)
+    except Exception:
+        return {"preferred_camera_index": 0, "width": 1920, "height": 1080, "fps": 30, "autofocus": False}
 
 def load_camera_preference() -> int | None:
     """
@@ -43,7 +61,7 @@ def load_camera_preference() -> int | None:
     try:
         with open(CONFIG_PATH, "r") as file:
             config_file = json.load(file)
-            return config_file["preferred_camera_index"]
+            return config_file.get("preferred_camera_index")
     except Exception:
         return None
 
@@ -91,18 +109,23 @@ def initialize_camera_stream(camera_index: int) -> cv2.VideoCapture | None:
         if not cap.isOpened():
             return None
             
-        # Request the high-fidelity resolution for OCR
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-
-        # Disable hardware Auto-Focus (Locks focus to infinity/fixed)
-        cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+        # Load user settings!
+        config = load_full_camera_config()
+        
+        # Request the custom resolution and FPS for OCR
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.get("width", 1920))
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.get("height", 1080))
+        cap.set(cv2.CAP_PROP_FPS, config.get("fps", 30))
+        
+        # Apply the user's Auto-Focus preference (1 = ON, 0 = OFF/Manual)
+        af_val = 1 if config.get("autofocus", False) else 0
+        cap.set(cv2.CAP_PROP_AUTOFOCUS, af_val)
         
         # Verify what the hardware driver ACTUALLY granted
         actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
-        print(f"[Hardware Setup] Camera {camera_index} | Requested: 1920x1080 | Actual Output: {actual_width}x{actual_height}")
+        print(f"[Hardware Setup] Camera {camera_index} | Requested: {config.get('width')}x{config.get('height')} @ {config.get('fps')}fps | Focus: {'AUTO' if af_val else 'MANUAL'} | Actual Output: {actual_width}x{actual_height}")
         
         return cap
     except Exception as e:
@@ -123,11 +146,11 @@ def crop_to_roi(frame, crop_width=800, crop_height=400):
     return frame[start_y:end_y, start_x:end_x]
 
 def preprocess_for_ocr(frame):
-    """Applies Grayscale and CLAHE to enhance text readability against glare."""
+    """Applies Grayscale, CLAHE, and Unsharp Masking to enhance text readability against glare."""
     # Convert to Grayscale (OCR doesn't need color, and it reduces array size by 3x)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
-    # Apply CLAHE
+    # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) - Fixes Glare
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)
     

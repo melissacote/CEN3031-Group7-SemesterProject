@@ -1,4 +1,4 @@
-# dialog_windows.py
+# ui/dialog_windows.py
 
 """
 All popup dialogs used by the MainWindow.
@@ -7,18 +7,16 @@ Each class is self-contained and well-documented.
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
-    QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget, QHeaderView
+    QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget, QHeaderView, QCheckBox
 )
-from PyQt6.QtCore import pyqtSignal, QStandardPaths
+from PyQt6.QtCore import QStandardPaths
 import pandas as pd
 import csv
 import os
 from ui.date_panel import DateSelectionPanel
 from services.reports import get_medication_history
-from ui.scanner_window import OCRScannerDialog
 from utils.pdf_generator import generate_pdf_report
-from services.medication import add_medication, get_medications_for_management
-from utils.camera import find_available_cameras, load_camera_preference, save_camera_preference
+from utils.camera import find_available_cameras, save_camera_preference, load_full_camera_config
 
 class ProfileWindow(QDialog):
     """Displays the logged-in user's full profile information."""
@@ -224,6 +222,9 @@ class SettingsWindow(QDialog):
         self.cam_combo = QComboBox()
         self.available_cams = find_available_cameras()
         
+        # Load the user's full configuration to pre-fill the form
+        current_config = load_full_camera_config()
+        
         if not self.available_cams:
             self.cam_combo.addItem("No cameras detected")
             self.cam_combo.setEnabled(False)
@@ -231,18 +232,41 @@ class SettingsWindow(QDialog):
             for cam in self.available_cams:
                 self.cam_combo.addItem(f"Camera {cam}")
             
-            saved_cam = load_camera_preference()
+            saved_cam = current_config.get("preferred_camera_index", 0)
             if saved_cam in self.available_cams:
                 dropdown_index = self.available_cams.index(saved_cam)
                 self.cam_combo.setCurrentIndex(dropdown_index)
 
         form.addRow("Select Webcam:", self.cam_combo)
 
-        self.resolution = QLineEdit("1920x1080")
+        # Convert Resolution to Dropdown
+        self.resolution = QComboBox()
+        self.resolution.addItems(["1920x1080", "1280x720", "800x600", "640x480"])
+        saved_res = f"{current_config.get('width', 1920)}x{current_config.get('height', 1080)}"
+        
+        res_idx = self.resolution.findText(saved_res)
+        if res_idx != -1:
+            self.resolution.setCurrentIndex(res_idx)
+            
         form.addRow("Resolution:", self.resolution)
 
-        self.fps = QLineEdit("30")
+        # Convert FPS to Dropdown
+        self.fps = QComboBox()
+        self.fps.addItems(["30", "60"])
+        saved_fps = str(current_config.get('fps', 30))
+        
+        fps_idx = self.fps.findText(saved_fps)
+        if fps_idx != -1:
+            self.fps.setCurrentIndex(fps_idx)
+            
         form.addRow("Frames per second:", self.fps)
+
+        # Auto-Focus Checkbox
+        self.autofocus_cb = QCheckBox("Enable Hardware Auto-Focus")
+        current_af_setting = current_config.get("autofocus", False)
+        self.autofocus_cb.setChecked(current_af_setting)
+        self.autofocus_cb.setToolTip("Uncheck to lock focus manually if your camera is pulsing/blurring.")
+        form.addRow("Auto-Focus:", self.autofocus_cb)
 
         layout.addWidget(group)
 
@@ -257,10 +281,30 @@ class SettingsWindow(QDialog):
     def apply_settings(self):
         if self.available_cams:
             selected_hardware_index = self.available_cams[self.cam_combo.currentIndex()]
-            save_camera_preference(selected_hardware_index)
+            
+            # Read directly from the dropdowns safely
+            try:
+                res_text = self.resolution.currentText().lower().split('x')
+                w = int(res_text[0].strip())
+                h = int(res_text[1].strip())
+                fps = int(self.fps.currentText().strip())
+                af_status = self.autofocus_cb.isChecked()
+
+            except Exception:
+                QMessageBox.warning(self, "Invalid Input", "Settings parsing failed.")
+                return
+
+            save_camera_preference(
+                camera_index=selected_hardware_index, 
+                width=w, 
+                height=h, 
+                fps=fps, 
+                autofocus=af_status
+            )
             
         QMessageBox.information(self, "Settings Saved", "Hardware preferences have been updated.")
         self.accept()
+
 
 class MedicationHistoryDialog(QDialog):
     """An interactive UI to view past medication administration logs."""
