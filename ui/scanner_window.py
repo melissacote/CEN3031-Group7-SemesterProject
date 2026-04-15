@@ -209,6 +209,8 @@ class OCRScannerDialog(QDialog):
             self.scanned_data.update(ocr_results)
             
             if 'medication_name' in self.scanned_data:
+                self.thread.stop()
+                self.thread.wait()
                 self.accept() # Close the dialog and return the data.
             else:
                 # Display the error cleanly in the status label
@@ -220,9 +222,7 @@ class OCRScannerDialog(QDialog):
 
     def closeEvent(self, event):
         """Ensures the video thread is properly stopped when the dialog is closed."""
-        # If the scanner dialog was left open, tell it to stop
-        if hasattr(self, 'scanner_dialog') and self.scanner_dialog.isVisible():
-            self.scanner_dialog.thread.stop()
-    
+        self.thread.stop()
+        self.thread.wait()
         # Standard exit
         event.accept()
