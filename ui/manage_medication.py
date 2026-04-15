@@ -1,9 +1,12 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
-    QMessageBox, QComboBox, QFormLayout, QLineEdit, QHeaderView, QHBoxLayout, QCheckBox
+    QMessageBox, QComboBox, QFormLayout, QLineEdit, QHeaderView, QHBoxLayout, QCheckBox,
+    QDialog # Added QDialog for the scanner window
 )
 from PyQt6.QtGui import QFont
 
+# Added OCRScannerDialog import
+from ui.scanner_window import OCRScannerDialog
 from services.medication import add_medication, get_medications_for_management, update_medication
 
 # NOTE: For now strength = dosage, directions = route, timing buckets = scheduled_time (csv text).
@@ -62,6 +65,11 @@ class ManageMedicationScreen(QWidget):
         self.form_title.setStyleSheet("font-weight: bold; color: #384e63;")
         self.layout.addWidget(self.form_title)
 
+        # Patient safety warning for OCR
+        self.warning_label = QLabel("⚠️ Please verify all scanned instructions against the physical bottle.")
+        self.warning_label.setStyleSheet("color: #d35400; font-weight: bold; font-size: 12px;")
+        self.layout.addWidget(self.warning_label)
+
         # Form fields the user fills before pressing save
         self.form = QFormLayout()
 
@@ -101,6 +109,13 @@ class ManageMedicationScreen(QWidget):
         # Layout area for save and cancel edit buttons
         self.button_layout = QHBoxLayout()
         self.button_layout.setSpacing(10)
+
+        # Auto-fill webcam button
+        self.scan_btn = QPushButton("📸 Auto-fill with Webcam")
+        self.scan_btn.setMinimumHeight(40)
+        self.scan_btn.setStyleSheet("background-color: #f39c12; color: white; border-radius: 5px; font-weight: bold; padding: 10px 18px;")
+        self.scan_btn.clicked.connect(self.open_scanner)
+        self.button_layout.addWidget(self.scan_btn)
 
         # Save button to add the medication record to the database
         self.save_btn = QPushButton("Save")
@@ -162,6 +177,41 @@ class ManageMedicationScreen(QWidget):
         self.layout.addLayout(self.edit_row)
 
         self.reload_list()
+
+    def open_scanner(self):
+        """Opens the webcam scanner dialog and waits for user capture."""
+        dlg = OCRScannerDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.autofill_form(dlg.scanned_data)
+
+    def autofill_form(self, scanned_data):
+        """Maps OCR data to the new schema: Strength, Directions, and Checkboxes."""
+        self.clear_form() # Wipe state before injection
+
+        if 'medication_name' in scanned_data:
+            self.input_name.setText(scanned_data['medication_name'])
+            
+        if 'dosage' in scanned_data:
+            self.input_strength.setText(scanned_data['dosage'])
+            
+        # The new UI merged Route and Special Instructions into "Directions"
+        if 'special_instructions' in scanned_data:
+            self.input_directions.setText(scanned_data['special_instructions'])
+        elif 'route' in scanned_data:
+            self.input_directions.setText(scanned_data['route'])
+
+        # Auto-select the Frequency Dropdown
+        if 'frequency' in scanned_data:
+            freq_index = self.input_frequency.findText(scanned_data['frequency'])
+            if freq_index != -1:
+                self.input_frequency.setCurrentIndex(freq_index)
+        
+        # Auto-check the Timing Checkboxes
+        if 'scheduled_time' in scanned_data:
+            time_val = scanned_data['scheduled_time']
+            for t_option, checkbox in self.timing_checkboxes.items():
+                if t_option.lower() in time_val.lower():
+                    checkbox.setChecked(True)
 
     def on_save(self):
         """Validates required fields before saving a new or existing medication record."""
