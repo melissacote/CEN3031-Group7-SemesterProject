@@ -9,16 +9,17 @@ import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFrame, QLabel,
     QToolBar, QMenuBar, QMenu, QMessageBox, QPushButton, QApplication,
-    QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog
+    QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog, QScrollArea
 )
 from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtCore import Qt, QSize
 from services.medication import get_user_medications, get_medications_for_management
 from services.user import get_user_id, get_user_profile
 from ui.dialog_windows import ( ProfileWindow, AnalyticsWindow, ExportDialog, MedicationReportDialog, SettingsWindow, 
-    AddMedicationDialog, MedicationHistoryDialog 
+    MedicationHistoryDialog 
 )
 from ui.tracking_screen import DosageTrackingScreen
+from ui.manage_medication import ManageMedicationScreen
 
 
 class MainWindow(QMainWindow):
@@ -87,11 +88,15 @@ class MainWindow(QMainWindow):
         self.tracking_widget = DosageTrackingScreen(user_id, go_back_callback=self.setup_central_widget)
         self.setCentralWidget(self.tracking_widget)
 
-    def open_add_medication_dialog(self):
-        # Opens the add medication dialog from the dashboard button interaction
-        dialog = AddMedicationDialog(self.current_user_id, self)
-        dialog.medication_saved.connect(self._load_medications_into_table)
-        dialog.exec()
+    def launch_manage_medication(self):
+        """Opens Manage Medication Screen"""
+        self.manage_medication_widget = ManageMedicationScreen(self.current_user_id, go_back_callback=self.setup_central_widget)
+        # Scroll area when the window isn't maximized (no bottom cutoff)
+        scroll = QScrollArea()
+        scroll.setWidget(self.manage_medication_widget)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.setCentralWidget(scroll)
         self._load_medications_into_table()
 
     def setup_central_widget(self) -> None:
@@ -124,10 +129,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(QLabel("<h3>🚀 Quick Actions</h3>"))
 
         # Medication management button
-        add_med_btn = QPushButton("➕ Add Medication")
-        add_med_btn.setStyleSheet("padding: 14px; text-align: left;")
-        add_med_btn.clicked.connect(self.open_add_medication_dialog)
-        layout.addWidget(add_med_btn)
+        manage_med_btn = QPushButton("➕ Add/Manage Medication")
+        manage_med_btn.setStyleSheet("padding: 14px; text-align: left;")
+        manage_med_btn.clicked.connect(self.launch_manage_medication)
+        layout.addWidget(manage_med_btn)
 
         # Dosage Tracker
         track_btn = QPushButton("💊 Daily Dosage Tracker")
@@ -267,6 +272,13 @@ class MainWindow(QMainWindow):
             self.is_large_print = True
             self.access_act.setChecked(True)  # Press the toolbar button in
             self.statusBar().showMessage("Accessibility: Large Print Enabled")
+
+        # Janky fix: QTableWidget can lag behind global font/stylesheet on fast Large Print toggles
+        # so reload the manage meds table forces rows to match current app style
+        central = self.centralWidget()
+        inner = central.widget() if central is not None and isinstance(central, QScrollArea) else None
+        if inner is not None and hasattr(inner, "reload_list"):
+            inner.reload_list()
 
     def show_export(self):
         """Open Export dialog."""
