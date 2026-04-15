@@ -133,7 +133,7 @@ class OCRScannerDialog(QDialog):
         # Get frame dimensions to calculate the center
         h, w, ch = cv_img.shape
 
-        # Define the exact dimensions used in your camera.crop_to_roi() function
+        # Define the exact dimensions used in camera.crop_to_roi() function
         crop_width = 800
         crop_height = 400
         
@@ -180,7 +180,7 @@ class OCRScannerDialog(QDialog):
             # --- Fetch the current user's name dynamically to blacklist it ---
             dynamic_blacklist = []
             
-            # The AddMedicationDialog is the parent, and it holds the active user_id!
+            # The AddMedicationDialog is the parent, and it holds the active user_id
             if self.parent() and hasattr(self.parent(), 'user_id'):
                 active_user_id = self.parent().user_id
                 import sqlite3
