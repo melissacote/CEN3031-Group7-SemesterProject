@@ -14,7 +14,7 @@ class VideoThread(QThread):
     It emits signals to update the UI with the current frame and focus score.
     """
     change_pixmap_signal = pyqtSignal(np.ndarray)
-    focus_score_signal = pyqtSignal(float)
+    focus_score_signal = pyqtSignal(float, float) 
 
     def __init__(self, camera_index=0):
         super().__init__()
@@ -31,13 +31,30 @@ class VideoThread(QThread):
             print(f"Error: Could not open camera {self.camera_index}")
             return
         
+        # Calibration Setup
+        calibration_frames = 30
+        baseline_sum = 0
+        baseline_focus = 0
+        frame_count = 0
+
         while self._run_flag:
             ret, cv_img = cap.read()
             if ret:
                 # Focus Math: Calculate variance of Laplacian
                 gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
                 focus_score = cv2.Laplacian(gray, cv2.CV_64F).var()
-                self.focus_score_signal.emit(focus_score)
+
+                # Calibration Phase: Learn the camera's baseline blurriness
+                if frame_count < calibration_frames:
+                    baseline_sum += focus_score
+                    frame_count += 1
+                    if frame_count == calibration_frames:
+                        baseline_focus = baseline_sum / calibration_frames
+                    self.focus_score_signal.emit(focus_score, 9999.0)
+                else:
+                    # Dynamic Phase: Require 1.5x sharpness over the baseline (or flat 15 minimum)
+                    threshold = max(baseline_focus * 1.5, 15.0)
+                    self.focus_score_signal.emit(focus_score, threshold)
 
                 # Emit frame to UI
                 self.change_pixmap_signal.emit(cv_img)
@@ -68,16 +85,15 @@ class OCRScannerDialog(QDialog):
         self.image_label = QLabel("Initializing Camera...")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setMinimumSize(640, 480)
-        self.image_label.setStyleSheet("border: 5px solid #c0392b; background: black;") # Start Red
+        self.image_label.setStyleSheet("border: 5px solid #f39c12; background: black;") # Start Yellow/Orange
         layout.addWidget(self.image_label)
 
-        self.status_label = QLabel("Center the label and wait for focus...")
+        self.status_label = QLabel("Calibrating camera... Keep background clear.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2980b9;")
         layout.addWidget(self.status_label)
 
         self.capture_btn = QPushButton("Capture && Read Text")
-        self.capture_btn.setEnabled(False) # Locked until focused
         self.capture_btn.setStyleSheet("padding: 15px; font-size: 16px;")
         self.capture_btn.clicked.connect(self.process_manual_ocr)
         layout.addWidget(self.capture_btn)
@@ -95,18 +111,17 @@ class OCRScannerDialog(QDialog):
         self.thread.focus_score_signal.connect(self.update_focus_ui)
         self.thread.start()
 
-    def update_focus_ui(self, score):
+    def update_focus_ui(self, score, threshold):
         """Updates the border color and button state based on the focus score."""
-        print(f"Current Focus Score: {score}")
-        if score > 60: # Threshold for sharpness
+        if threshold == 9999.0:
+            return # Still in calibration phase, do nothing
+            
+        if score > threshold: 
             self.image_label.setStyleSheet("border: 5px solid #27ae60; background: black;")
-            if not self.capture_btn.isEnabled():
-                self.capture_btn.setEnabled(True)
-                self.status_label.setText("READY: Image is in focus.")
+            self.status_label.setText("READY: Image is in focus.")
         else:
-            self.image_label.setStyleSheet("border: 5px solid #c0392b; background: black;")
-            self.capture_btn.setEnabled(False)
-            self.status_label.setText("BLURRY: Move bottle slowly until border is Green.")
+            self.image_label.setStyleSheet("border: 5px solid #f39c12; background: black;") 
+            self.status_label.setText("BLURRY: Move bottle slowly, or click Capture if legible.")
 
     def update_image(self, cv_img):
         """Receives a new frame from the video thread, converts it to QImage, and updates the QLabel.
@@ -152,6 +167,7 @@ class OCRScannerDialog(QDialog):
             self.capture_btn.setText("Analyzing Label...")
             self.capture_btn.setEnabled(False)
             self.status_label.setText("Processing OCR... Please wait.")
+            
             # Crop to the center Region of Interest to remove background noise
             cropped_frame = crop_to_roi(self.current_frame)
             
@@ -161,8 +177,30 @@ class OCRScannerDialog(QDialog):
             # Send the highly optimized frame to PaddleOCR
             raw_text = extract_text_from_frame(clean_frame)
             
+            # --- Fetch the current user's name dynamically to blacklist it ---
+            dynamic_blacklist = []
+            
+            # The AddMedicationDialog is the parent, and it holds the active user_id!
+            if self.parent() and hasattr(self.parent(), 'user_id'):
+                active_user_id = self.parent().user_id
+                import sqlite3
+                import os
+                
+                db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'medrec.db')
+                try:
+                    with sqlite3.connect(db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT first_name, last_name FROM users WHERE user_id = ?", (active_user_id,))
+                        user_record = cursor.fetchone()
+                        
+                        if user_record:
+                            if user_record[0]: dynamic_blacklist.append(user_record[0].lower())
+                            if user_record[1]: dynamic_blacklist.append(user_record[1].lower())
+                except Exception as e:
+                    print(f"Could not fetch dynamic PII blacklist: {e}")
+            
             # Parse the text using the multi-stage security heuristics
-            ocr_results = parse_medication_label(raw_text)
+            ocr_results = parse_medication_label(raw_text, patient_name_words=dynamic_blacklist)
             
             # Completely wipe out any data from previous scans
             self.scanned_data.clear() 

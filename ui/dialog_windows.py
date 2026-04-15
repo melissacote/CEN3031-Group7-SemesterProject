@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
     QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget, QHeaderView
 )
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, QStandardPaths
 import pandas as pd
 import csv
 import os
@@ -18,6 +18,7 @@ from services.reports import get_medication_history
 from ui.scanner_window import OCRScannerDialog
 from utils.pdf_generator import generate_pdf_report
 from services.medication import add_medication, get_medications_for_management
+from utils.camera import find_available_cameras, load_camera_preference, save_camera_preference
 
 
 class AddMedicationDialog(QDialog):
@@ -42,20 +43,22 @@ class AddMedicationDialog(QDialog):
         self.input_scheduled_time = QLineEdit()
         self.input_prescriber = QLineEdit()
         self.input_special_instructions = QLineEdit()
+        
         self.input_name.setPlaceholderText("required")
         self.input_dosage.setPlaceholderText("required")
         self.input_route.setPlaceholderText("required")
         self.input_frequency.setPlaceholderText("required")
         self.input_scheduled_time.setPlaceholderText("required")
         self.input_prescriber.setPlaceholderText("optional")
-        self.input_special_instructions.setPlaceholderText("optional")
+        self.input_special_instructions.setPlaceholderText("e.g., Take 1 tablet daily")
+        
         form.addRow("Medication name:", self.input_name)
         form.addRow("Dosage:", self.input_dosage)
         form.addRow("Route:", self.input_route)
         form.addRow("Frequency:", self.input_frequency)
         form.addRow("Scheduled time:", self.input_scheduled_time)
         form.addRow("Prescriber:", self.input_prescriber)
-        form.addRow("Special instructions:", self.input_special_instructions)
+        form.addRow("Directions / Notes:", self.input_special_instructions)
         layout.addLayout(form)
 
         # Save button to add the medication record to the database
@@ -170,6 +173,7 @@ class AddMedicationDialog(QDialog):
 
         if 'special_instructions' in scanned_data:
             self.input_special_instructions.setText(scanned_data['special_instructions'])
+
 class ProfileWindow(QDialog):
     """Displays the logged-in user's full profile information."""
 
@@ -323,11 +327,13 @@ class MedicationReportDialog(QDialog):
         # Grab custom dates from the UI panel
         start_date, end_date = self.date_panel.get_selected_dates()
 
-        # Open a "Save As" file dialog
+        # Open a "Save As" file dialog using secure QStandardPaths
+        desktop_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
         default_filename = f"{self.username}_Adherence_Report.pdf"
+        
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Save Patient Report", 
-            os.path.join(os.path.expanduser("~"), "Desktop", default_filename),
+            os.path.join(desktop_path, default_filename),
             "PDF Files (*.pdf)"
         )
 
@@ -357,7 +363,7 @@ class MedicationReportDialog(QDialog):
 
 
 class SettingsWindow(QDialog):
-    """Webcam configuration UI (no hardware interface implemented yet)."""
+    """Webcam configuration UI."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -370,7 +376,20 @@ class SettingsWindow(QDialog):
         form = QFormLayout(group)
 
         self.cam_combo = QComboBox()
-        self.cam_combo.addItems(["Webcam 1 (Integrated)", "Webcam 2 (USB)", "Virtual Camera"])
+        self.available_cams = find_available_cameras()
+        
+        if not self.available_cams:
+            self.cam_combo.addItem("No cameras detected")
+            self.cam_combo.setEnabled(False)
+        else:
+            for cam in self.available_cams:
+                self.cam_combo.addItem(f"Camera {cam}")
+            
+            saved_cam = load_camera_preference()
+            if saved_cam in self.available_cams:
+                dropdown_index = self.available_cams.index(saved_cam)
+                self.cam_combo.setCurrentIndex(dropdown_index)
+
         form.addRow("Select Webcam:", self.cam_combo)
 
         self.resolution = QLineEdit("1920x1080")
@@ -390,15 +409,12 @@ class SettingsWindow(QDialog):
         layout.addWidget(close_btn)
 
     def apply_settings(self):
-        QMessageBox.information(
-            self,
-            "Settings Saved",
-            f"Webcam configured:\n"
-            f"Device: {self.cam_combo.currentText()}\n"
-            f"Resolution: {self.resolution.text()}\n"
-            f"FPS: {self.fps.text()}\n\n"
-            "Hardware interface will be implemented in a future update."
-        )
+        if self.available_cams:
+            selected_hardware_index = self.available_cams[self.cam_combo.currentIndex()]
+            save_camera_preference(selected_hardware_index)
+            
+        QMessageBox.information(self, "Settings Saved", "Hardware preferences have been updated.")
+        self.accept()
 
 class MedicationHistoryDialog(QDialog):
     """An interactive UI to view past medication administration logs."""

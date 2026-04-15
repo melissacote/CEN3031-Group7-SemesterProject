@@ -8,7 +8,6 @@ This script initializes the database and launches the login window.
 import sys
 from PyQt6.QtWidgets import QApplication
 from database.db_connection import create_tables, get_connection
-from ui.login_window import LoginWindow
 from scripts.seed_fda_data import is_database_seeded, seed_data
 
 # HELPER: Grab the ID of the fake user from test_logic.py
@@ -47,16 +46,20 @@ if __name__ == "__main__":
     # Validate if the test user exists in the DB
     test_user_id = get_test_user_id()
 
-    # For testing only, change as needed
-    test_mode = True
-    if test_mode is True and test_user_id is None:
-        print("Error: Run 'python test_logic.py' first to generate the test data!")
-        sys.exit(1)
+    # For testing only, change as needed. Keep False for production to prevent crashes!
+    test_mode = False
+    if test_mode and test_user_id is None:
+        print("Warning: Test user not found. Booting normally instead of exiting.")
 
     # Instantiate application using the given arguments
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True) # Ensure OS kills the process on exit
+    
+    # Initialize SQLite database and seed FDA data FIRST
     run_startup_checks()
+
+    # Now that the environment is ready, safely import UI
+    from ui.login_window import LoginWindow
 
     app.setStyle("Fusion") # Modern application-wide style
 

@@ -20,7 +20,35 @@ COMBINED_NOISE = NOISE_WORDS | PII_PREFIXES | PHARMACIES | MANUFACTURERS
 
 FREQUENCIES = ["three times a day", "twice a day", "every 12 hours", "every 10 hours", "every 8 hours", "every 6 hours", "every 2 hours", "every 4 hours", "each week","everyday", "daily", "as needed"]
 TIMES = ["bedtime", "morning", "evening", "with meals", "before meals"]
-ROUTES = ["oral", "mouth", "sublingual", "under the tongue", "under tongue", "enteral", "feeding tube", "topical", "transdermal", "patch", "ophthalmic", "eye", "otic", "ear", "nasal", "nares", "nose", "nostril", "rectal", "rectum", "vaginal", "vagina", "inhalation", "nebulizer", "injection", "intravenous", "iv", "subcutaneous", "sq", "subq", "subcut", "intramuscular"]
+
+FREQUENCY_MAP = {
+    "daily": "Once daily", "everyday": "Once daily", "every day": "Once daily", "once a day": "Once daily",
+    "twice a day": "Twice daily", "bid": "Twice daily", "two times": "Twice daily",
+    "three times": "Three times daily", "tid": "Three times daily",
+    "four times": "Four times daily", "qid": "Four times daily",
+    "every 12 hours": "Twice daily", "every 8 hours": "Three times daily", 
+    "every 6 hours": "Four times daily", "every 4 hours": "Four times daily",
+    "every other day": "Every other day",
+    "weekly": "Weekly", "once a week": "Weekly",
+    "as needed": "As needed", "prn": "As needed"
+}
+
+ROUTE_MAP = {
+    "oral": "Oral", "mouth": "Oral",
+    "sublingual": "Sublingual", "under the tongue": "Sublingual", "under tongue": "Sublingual",
+    "enteral": "Enteral", "feeding tube": "Enteral",
+    "topical": "Topical", "transdermal": "Transdermal", "patch": "Transdermal",
+    "ophthalmic": "Ophthalmic", "eye": "Ophthalmic",
+    "otic": "Otic", "ear": "Otic",
+    "nasal": "Nasal", "nares": "Nasal", "nose": "Nasal", "nostril": "Nasal",
+    "rectal": "Rectal", "rectum": "Rectal",
+    "vaginal": "Vaginal", "vagina": "Vaginal",
+    "inhalation": "Inhalation", "nebulizer": "Inhalation", "puff": "Inhalation", "puffs": "Inhalation",
+    "injection": "Injection", "intravenous": "Intravenous", "iv": "Intravenous",
+    "subcutaneous": "Subcutaneous", "sq": "Subcutaneous", "subq": "Subcutaneous", "subcut": "Subcutaneous",
+    "intramuscular": "Intramuscular", "im": "Intramuscular"
+}
+
 def load_fda_data():
     """Loads FDA data from product.txt for name and route matching."""
     drug_names = set()
@@ -71,8 +99,11 @@ def extract_text_from_frame(frame):
     raw_text = " ".join([line[1] for line in valid_lines])
     return raw_text.strip()
 
-def parse_medication_label(raw_text):
+def parse_medication_label(raw_text, patient_name_words=None):
     """Parses text using safe regex and fuzzy matching against FDA data."""
+    if patient_name_words is None:
+        patient_name_words = []
+
     # Normalization: keep decimals, slashes, and COMMAS
     clean_text = re.sub(r'[^\w\s\.\-\/,]', ' ', raw_text)
     search_text = clean_text.lower()
@@ -109,16 +140,16 @@ def parse_medication_label(raw_text):
     if found_dosages:
         results['dosage'] = " / ".join(found_dosages)
 
-    # Extract Route, Frequency, Timing with direct and fuzzy matching
-    for r in ROUTES:
-        if r in search_text:
-            results['route'] = "Oral" if r == "mouth" else r.capitalize()
+    # Extract Route, Frequency, Timing with direct and safe dictionary matching
+    for key, canonical_freq in FREQUENCY_MAP.items():
+        if re.search(r'\b' + re.escape(key) + r'\b', search_text):
+            results['frequency'] = canonical_freq
             break
 
-    for freq in FREQUENCIES:
-        if freq in search_text:
-            results['frequency'] = freq.capitalize()
-            break 
+    for key, canonical_route in ROUTE_MAP.items():
+        if re.search(r'\b' + re.escape(key) + r'\b', search_text):
+            results['route'] = canonical_route
+            break
 
     for time in TIMES:
         if time in search_text:
@@ -149,19 +180,31 @@ def parse_medication_label(raw_text):
     high_score = 0
 
     for word in words:
-        # Avoid matching keywords as drug names (Includes PII/PHI blacklists)
-        if word.lower() in COMBINED_NOISE or word.lower() in FREQUENCIES or word.upper() in dosage_keywords: continue
+        word_lower = word.lower()
+        # Avoid matching keywords as drug names (Includes PII/PHI dynamic blacklists)
+        if (word_lower in COMBINED_NOISE or 
+            word_lower in FREQUENCY_MAP or 
+            word.upper() in dosage_keywords or 
+            word_lower in patient_name_words): 
+            continue
 
         # First check for exact match in the set (fast)
         if word.upper() in ALL_DRUG_NAMES_SET:
-            best_name = word
+            best_name = word.title()
             high_score = 100
             break
             
-        name, score = process.extractOne(word, ALL_DRUG_NAMES)
-        if score > 85 and score > high_score:
-            high_score = score
-            best_name = name
+        name, score = process.extractOne(word, ALL_DRUG_NAMES, scorer=fuzz.ratio)
+        if score > 85:
+            # PENALTY: Prevent hallucinating Extended Release versions
+            if " ER" in name and "ER" not in word.upper():
+                score -= 20
+            if " XR" in name and "XR" not in word.upper():
+                score -= 20
+
+            if score > high_score:
+                high_score = score
+                best_name = name
     
     if best_name:
         results['medication_name'] = best_name.title()
