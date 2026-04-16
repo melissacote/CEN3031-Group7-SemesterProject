@@ -82,7 +82,7 @@ class DosageTrackingScreen(QWidget):
 
         for med in meds:
             med_id, name, dosage, time, is_taken = med
-            # The UI accurately reflects the database state!
+            # The UI accurately reflects the database state
             if is_taken == 1:
                 display_text = f"{time} - {name} ({dosage}) ✅"
             else:

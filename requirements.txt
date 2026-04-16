@@ -1,8 +1,14 @@
 PyQt6==6.10.2
 pandas
 matplotlib
-numpy
+numpy==1.26.4
 argon2-cffi
 xhtml2pdf
 jinja2
+setuptools
+paddlepaddle==2.6.2
+paddleocr==2.7.3
+thefuzz==0.22.1
+python-Levenshtein==0.25.1
+opencv-python-headless==4.9.0.80
 pytest # dev-only dependency
