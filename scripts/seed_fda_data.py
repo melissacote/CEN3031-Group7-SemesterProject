@@ -19,7 +19,7 @@ def setup_database_table(cursor):
             generic_name TEXT
         )
     ''')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_ndc ON fda_medications(ndc)') # Index for speed!
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_ndc ON fda_medications(ndc)') # Index for speed
 
 def seed_data():
     """Reads the FDA product.txt file and seeds the fda_medications table in SQLite."""
