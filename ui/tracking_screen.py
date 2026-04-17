@@ -1,5 +1,6 @@
 # UI screen for tracking today's dosages
 
+from datetime import datetime
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListWidget, QPushButton, QMessageBox
 from PyQt6.QtGui import QFont
 
@@ -41,7 +42,9 @@ class DosageTrackingScreen(QWidget):
         self.back_btn.clicked.connect(self.handle_back)
         self.layout.addWidget(self.back_btn)
 
-        self.title_label = QLabel("Today's Dosage Tracker")
+        # Show current date to assure user that the tracking resets daily
+        today_str = datetime.now().strftime("%A, %B %d, %Y")
+        self.title_label = QLabel(f"Today's Dosage Tracker - {today_str}")
         self.title_label.setFont(QFont("Arial", 20, QFont.Weight.Bold))
 
         self.tracking_list = QListWidget()
@@ -81,12 +84,18 @@ class DosageTrackingScreen(QWidget):
             return
 
         for med in meds:
-            med_id, name, dosage, time, is_taken = med
+            # Unpack the returned row including notes and timestamp
+            med_id, name, dosage, time, is_taken, notes, time_taken = med
+            
+            # Format notes if they exist
+            notes_display = f" | Notes: {notes}" if notes else ""
+
             # The UI accurately reflects the database state
             if is_taken == 1:
-                display_text = f"{time} - {name} ({dosage}) ✅"
+                # Actually tracks and displays the real time it was consumed
+                display_text = f"{time} - {name} ({dosage}){notes_display} ✅ (Taken at {time_taken})"
             else:
-                display_text = f"{time} - {name} ({dosage})"
+                display_text = f"{time} - {name} ({dosage}){notes_display}"
 
             # Add it to the visual UI list
             self.tracking_list.addItem(display_text)

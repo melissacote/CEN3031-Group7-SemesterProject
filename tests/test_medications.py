@@ -1,7 +1,7 @@
 import pytest
 
 from services.medication import get_user_medications, add_medication, get_medications_for_management, \
-    get_todays_medications_sorted, update_medication
+    get_todays_medications_sorted, update_medication, check_duplicate_medication, deactivate_medication
 from services.user import create_new_user, get_user_id
 
 
@@ -133,3 +133,54 @@ def test_update_medication(test_db):
     assert after[0]['route'] == 'Oral with food'
     assert after[0]['frequency'] == 'Twice daily'
     assert after[0]['scheduled_time'] == 'Morning,Evening'
+
+def test_check_duplicate_medication(test_db):
+    """Test that the duplicate checker accurately identifies active matching names."""
+    user_data = {
+        'username': 'testuser',
+        'password': 'TestPass123',
+        'first_name': 'Snor',
+        'last_name': 'Lax',
+        'date_of_birth': '1996-01-01'
+    }
+    create_new_user(user_data, conn = test_db)
+    test_id = get_user_id('testuser', conn = test_db)
+
+    # Add medication
+    add_medication(test_id, 'Ibuprofen', '200mg', 'oral', 'daily', '12:00', conn = test_db)
+
+    # Test true positive (case-insensitive check)
+    assert check_duplicate_medication(test_id, 'ibuprofen', conn=test_db) == True
+    assert check_duplicate_medication(test_id, 'Ibuprofen ', conn=test_db) == True
+
+    # Test true negative
+    assert check_duplicate_medication(test_id, 'Tylenol', conn=test_db) == False
+
+def test_deactivate_medication(test_db):
+    """Test that deactivating a medication hides it from active management queries."""
+    user_data = {
+        'username': 'testuser',
+        'password': 'TestPass123',
+        'first_name': 'Geodude',
+        'last_name': 'Rock',
+        'date_of_birth': '1996-01-01'
+    }
+    create_new_user(user_data, conn = test_db)
+    test_id = get_user_id('testuser', conn = test_db)
+
+    # Add medication
+    add_medication(test_id, 'Tylenol', '500mg', 'oral', 'daily', '08:00', conn = test_db)
+    
+    # Verify it exists
+    active_meds = get_medications_for_management(test_id, conn=test_db)
+    assert len(active_meds) == 1
+    med_id = active_meds[0]['medication_id']
+
+    # Soft delete it
+    deactivate_medication(med_id, conn=test_db)
+
+    # Verify it no longer appears in active management queries
+    assert len(get_medications_for_management(test_id, conn=test_db)) == 0
+    
+    # Verify the duplicate checker ignores it (since it's inactive)
+    assert check_duplicate_medication(test_id, 'Tylenol', conn=test_db) == False

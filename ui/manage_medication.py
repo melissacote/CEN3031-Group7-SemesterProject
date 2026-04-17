@@ -7,7 +7,13 @@ from PyQt6.QtGui import QFont
 
 # Added OCRScannerDialog import
 from ui.scanner_window import OCRScannerDialog
-from services.medication import add_medication, get_medications_for_management, update_medication
+from services.medication import (
+    add_medication, 
+    get_medications_for_management, 
+    update_medication,
+    check_duplicate_medication, # Imported for Issue #35
+    deactivate_medication # Added to support deleting from the UI
+)
 
 # NOTE: For now strength = dosage, directions = route, timing buckets = scheduled_time (csv text).
 # Update this once schema refactor happens 
@@ -42,7 +48,7 @@ class ManageMedicationScreen(QWidget):
         self.meds = []
 
         # Frequency and timing labels stored here. Update this list if options change
-        self.frequency_options = ['Once daily', 'Twice daily', 'Three times daily', 'Four times daily', 'As needed', 'Every other day', 'Weekly']
+        self.frequency_options = ['Once daily', 'Twice daily', 'Three times daily', 'Four times daily', 'As needed', 'Every other day', 'Weekly', 'Custom...']
         self.timing_options = ['Morning', 'Midday', 'Afternoon', 'Evening', 'Bedtime']
 
         # Main vertical layout for all widgets on this screen
@@ -84,11 +90,23 @@ class ManageMedicationScreen(QWidget):
 
         self.input_frequency = QComboBox()
         self.input_frequency.addItems(self.frequency_options)
+        self.input_frequency.currentTextChanged.connect(self.on_frequency_changed)
+
+        # Custom frequency input (hidden by default)
+        self.input_custom_frequency = QLineEdit()
+        self.input_custom_frequency.setPlaceholderText("Enter custom frequency")
+        self.input_custom_frequency.hide()
+
+        # Added UI for Notes / Special Instructions
+        self.input_notes = QLineEdit()
+        self.input_notes.setPlaceholderText("e.g. Take with food, avoid grapefruit")
 
         self.form.addRow("Medication name:", self.input_name)
         self.form.addRow("Strength:", self.input_strength)
         self.form.addRow("Directions:", self.input_directions)
         self.form.addRow("Frequency:", self.input_frequency)
+        self.form.addRow("", self.input_custom_frequency)
+        self.form.addRow("Notes:", self.input_notes)
 
         self.layout.addLayout(self.form) # form field with text options
 
@@ -132,11 +150,19 @@ class ManageMedicationScreen(QWidget):
         self.cancel_edit_btn.hide()
         self.button_layout.addWidget(self.cancel_edit_btn)
 
+        # Delete button that appears in edit mode to soft-delete the medication
+        self.delete_btn = QPushButton("Delete")
+        self.delete_btn.setMinimumHeight(40)
+        self.delete_btn.setStyleSheet("background-color: #e74c3c; color: white; border-radius: 5px; font-weight: bold; padding: 10px 18px;")
+        self.delete_btn.clicked.connect(self.on_delete)
+        self.delete_btn.hide()
+        self.button_layout.addWidget(self.delete_btn)
+
         self.button_layout.addStretch()
         self.layout.addLayout(self.button_layout) # adding buttons to layout
 
-        # Layout area for medications table with 5 columns
-        self.med_table = QTableWidget(0, 5)
+        # Layout area for medications table with 6 columns
+        self.med_table = QTableWidget(0, 6)
 
         # Heading for table
         self.table_label = QLabel("Saved Medications")
@@ -149,7 +175,7 @@ class ManageMedicationScreen(QWidget):
         self.layout.addWidget(self.edit_instructions_label)
 
         # Table for display medications to edit (table design from main window)
-        self.med_table.setHorizontalHeaderLabels(["Name", "Strength", "Directions", "Frequency", "Timing"])
+        self.med_table.setHorizontalHeaderLabels(["Name", "Strength", "Directions", "Frequency", "Timing", "Notes"])
         self.med_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.med_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.med_table.setAlternatingRowColors(True)
@@ -157,7 +183,7 @@ class ManageMedicationScreen(QWidget):
         self.header = self.med_table.horizontalHeader()
 
         # Makes all columns resize to fill the table width
-        for col in range(5):
+        for col in range(6):
             self.header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
     
         self.layout.addWidget(self.med_table) # adding table to layout
@@ -177,6 +203,14 @@ class ManageMedicationScreen(QWidget):
         self.layout.addLayout(self.edit_row)
 
         self.reload_list()
+
+    def on_frequency_changed(self, text):
+        """Toggle the custom frequency input field visibility."""
+        if text == "Custom...":
+            self.input_custom_frequency.show()
+        else:
+            self.input_custom_frequency.hide()
+            self.input_custom_frequency.clear()
 
     def open_scanner(self):
         """Opens the webcam scanner dialog and waits for user capture."""
@@ -205,6 +239,10 @@ class ManageMedicationScreen(QWidget):
             freq_index = self.input_frequency.findText(scanned_data['frequency'])
             if freq_index != -1:
                 self.input_frequency.setCurrentIndex(freq_index)
+            else:
+                self.input_frequency.setCurrentText("Custom...")
+                self.input_custom_frequency.setText(scanned_data['frequency'])
+                self.input_custom_frequency.show()
         
         # Auto-check the Timing Checkboxes
         if 'scheduled_time' in scanned_data:
@@ -218,8 +256,13 @@ class ManageMedicationScreen(QWidget):
         medication_name = self.input_name.text().strip()
         strength = self.input_strength.text().strip()
         directions = self.input_directions.text().strip()
-        frequency = self.input_frequency.currentText()
         
+        frequency = self.input_frequency.currentText()
+        if frequency == "Custom...":
+            frequency = self.input_custom_frequency.text().strip()
+            
+        notes = self.input_notes.text().strip()
+
         # NOTE: scheduled_time is stored as comma separated timing buckets for now (e.g. Morning,Evening)
         time_selected = [time for time in self.timing_options if self.timing_checkboxes[time].isChecked()]
         timing = ','.join(time_selected)
@@ -229,37 +272,65 @@ class ManageMedicationScreen(QWidget):
             QMessageBox.warning(self, "⚠️ Missing info", "Enter medication name, strength, and directions.")
             return
 
-        # NOTE: add_medication/update_medication still take (dosage, route, scheduled_time) args
-        # so strength/directions/timing vars are passed in those positions for now
         if self.editing_medication_id is None:
+            # Warning for duplicate names with override capability
+            if check_duplicate_medication(self.user_id, medication_name):
+                reply = QMessageBox.warning(
+                    self, 
+                    "Duplicate Medication", 
+                    f"A medication named '{medication_name}' is already active. Do you want to add it anyway?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.No:
+                    return
+
             add_medication(
-                self.user_id,
-                medication_name,
-                strength,
-                directions,
-                frequency,
-                timing
+                self.user_id, medication_name, strength, directions, frequency, timing, special_instructions=notes
             )
 
         # If in editing mode update the selected medication
         else:
             update_medication(
-                self.editing_medication_id,
-                medication_name,
-                strength,
-                directions,
-                frequency,
-                timing
+                self.editing_medication_id, medication_name, strength, directions, frequency, timing
             )
         
             self.editing_medication_id = None
             self.form_title.setText("Add New Medication")
             self.save_btn.setText("Save")
             self.cancel_edit_btn.hide()
+            self.delete_btn.hide() # Hide delete button when reverting to add mode
 
         # reset the screen and load db changes
         self.clear_form()
         self.reload_list()
+
+    def on_delete(self):
+        """Prompts user for confirmation and deactivates the selected medication."""
+        if self.editing_medication_id is None:
+            return
+
+        reply = QMessageBox.warning(
+            self,
+            "Confirm Delete",
+            f"Are you sure you want to delete '{self.input_name.text()}'?\n\nThis will remove it from your active list and daily tracker, but preserve it in historical reports.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            # Mark the medication as inactive in the database
+            deactivate_medication(self.editing_medication_id)
+            
+            # Reset the UI to "Add Mode"
+            self.editing_medication_id = None
+            self.form_title.setText("Add New Medication")
+            self.save_btn.setText("Save")
+            self.cancel_edit_btn.hide()
+            self.delete_btn.hide()
+            self.clear_form()
+            self.reload_list()
+            QMessageBox.information(self, "Deleted", "Medication successfully removed.")
 
     def on_edit(self):
         """Loads selected medication row into the form and switches screen to edit mode"""
@@ -279,6 +350,8 @@ class ManageMedicationScreen(QWidget):
 
         # NOTE: med["route"] = Directions field for now
         self.input_directions.setText(selected_med.get("route", ""))
+        
+        self.input_notes.setText(selected_med.get("special_instructions", ""))
 
         frequency = selected_med.get("frequency", "")
         freq_index = self.input_frequency.findText(frequency)
@@ -288,7 +361,9 @@ class ManageMedicationScreen(QWidget):
         if freq_index != -1:
             self.input_frequency.setCurrentIndex(freq_index)
         else:
-            self.input_frequency.setCurrentIndex(0)
+            self.input_frequency.setCurrentText("Custom...")
+            self.input_custom_frequency.setText(frequency)
+            self.input_custom_frequency.show()
 
         # NOTE: scheduled_time is stored as comma separated timing buckets for now (e.g. Morning,Evening)
         # Check time boxes for selected medication
@@ -300,6 +375,7 @@ class ManageMedicationScreen(QWidget):
         self.form_title.setText("Edit Medication")
         self.save_btn.setText("Update")
         self.cancel_edit_btn.show()
+        self.delete_btn.show() # Show the delete button when in edit mode
 
     def cancel_edit(self):
         """Cancel edit mode, reset form fields, and returns UI to add mode."""
@@ -307,6 +383,7 @@ class ManageMedicationScreen(QWidget):
         self.form_title.setText("Add New Medication")
         self.save_btn.setText("Save")
         self.cancel_edit_btn.hide()
+        self.delete_btn.hide() # Hide delete button
         self.clear_form()
 
     def reload_list(self):
@@ -326,6 +403,7 @@ class ManageMedicationScreen(QWidget):
             raw_timing = med.get("scheduled_time", "") or "" # None safe (e.g. DB NULL) since scheduled_time may be optional / nullable
             ui_timing = ", ".join(part.strip() for part in raw_timing.split(",") if part.strip())
             self.med_table.setItem(row, 4, QTableWidgetItem(ui_timing))
+            self.med_table.setItem(row, 5, QTableWidgetItem(med.get("special_instructions", "")))
 
         for row in range(len(self.meds)):
             self.med_table.resizeRowToContents(row)
@@ -335,7 +413,10 @@ class ManageMedicationScreen(QWidget):
         self.input_name.clear()
         self.input_strength.clear()
         self.input_directions.clear()
+        self.input_notes.clear()
         self.input_frequency.setCurrentIndex(0) # sets frequency back to first option
+        self.input_custom_frequency.clear()
+        self.input_custom_frequency.hide()
         
         # Uncheck checked timing boxes
         for checkbox in self.timing_checkboxes.values():

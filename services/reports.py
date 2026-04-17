@@ -22,14 +22,18 @@ def get_medication_history(user_id, start_date=None, end_date=None, conn=None):
         cursor = conn.cursor()
         # Join the logs with the medications table to get names and dosages
         cursor.execute('''
-            SELECT m.medication_name, m.dosage, a.date_taken, a.time_taken
+            SELECT m.medication_name, m.dosage, a.date_taken, a.time_taken, a.status, m.special_instructions
             FROM administration_log a
             JOIN medications m ON a.medication_id = m.medication_id
             WHERE a.user_id = ? AND a.date_taken BETWEEN ? AND ?
             ORDER BY a.date_taken DESC, a.time_taken DESC
         ''', (user_id, start_date, end_date))
         
-        return cursor.fetchall(), start_date, end_date
+        # Package rows into dicts for templating
+        keys = ["medication_name", "dosage", "date_taken", "time_taken", "status", "notes"]
+        log_data = [dict(zip(keys, row)) for row in cursor.fetchall()]
+        
+        return log_data, start_date, end_date
 
 def get_patient_dob(user_id, conn=None):
     """Fetch the patient's date of birth for report header."""

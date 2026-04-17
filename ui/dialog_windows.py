@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QFileDialog, QComboBox, QFormLayout, QGroupBox, QLineEdit, QListWidget, QHeaderView, QCheckBox
 )
 from PyQt6.QtCore import QStandardPaths
+from PyQt6.QtGui import QColor
 import pandas as pd
 import csv
 import os
@@ -138,20 +139,30 @@ class ExportDialog(QDialog):
 
 
 class MedicationReportDialog(QDialog):
-    """Dialog to select dates and generate a PDF report of medication intake."""
+    """Dialog to select dates, report type, and generate a PDF report of medication intake."""
     def __init__(self, user_id, username, parent=None):
         super().__init__(parent)
         self.user_id = user_id
         self.username = username
         self.setWindowTitle("Generate PDF Medication Report")
-        self.resize(350, 250)
+        self.resize(350, 320)
 
         layout = QVBoxLayout(self)
         
         layout.addWidget(QLabel(f"<h3>📄 Medication Intake Report for {username}</h3>"))
-        layout.addWidget(QLabel("This will create a professional PDF summary of your current medications."))
-        layout.addWidget(QLabel("Select the date range for the medical report:"))
+        layout.addWidget(QLabel("This will create a professional PDF summary of your medications."))
+        
+        # Create report query UI toggle
+        layout.addWidget(QLabel("<b>Report Type:</b>"))
+        self.report_type_combo = QComboBox()
+        self.report_type_combo.addItems([
+            "Both (Medication List & Admin Record)", 
+            "Medication List Only", 
+            "Administration Record Only"
+        ])
+        layout.addWidget(self.report_type_combo)
 
+        layout.addWidget(QLabel("<b>Select Date Range:</b>"))
         # Use date selection panel to allow users to pick custom start/end dates for the report (defaults to last 30 days)  
         self.date_panel = DateSelectionPanel()
         layout.addWidget(self.date_panel)
@@ -170,6 +181,7 @@ class MedicationReportDialog(QDialog):
         """Handles the generation process when the button is clicked."""
         # Grab custom dates from the UI panel
         start_date, end_date = self.date_panel.get_selected_dates()
+        report_type = self.report_type_combo.currentText() # Pass to backend
 
         # Open a "Save As" file dialog using secure QStandardPaths
         desktop_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
@@ -193,7 +205,8 @@ class MedicationReportDialog(QDialog):
             patient_name=self.username,
             start_date=start_date,
             end_date=end_date,
-            output_path=file_path
+            output_path=file_path,
+            report_type=report_type
         )
 
         # Handle Success/Failure
@@ -312,7 +325,7 @@ class MedicationHistoryDialog(QDialog):
         super().__init__(parent)
         self.user_id = user_id
         self.setWindowTitle("Medication History Log")
-        self.resize(700, 500)
+        self.resize(750, 500)
 
         layout = QVBoxLayout(self)
 
@@ -328,14 +341,14 @@ class MedicationHistoryDialog(QDialog):
 
         # The table to display the results
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Date", "Time", "Medication", "Dosage"])
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(["Date", "Time", "Medication", "Dosage", "Notes", "Status"])
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         
         # Stretch columns to fit the window
         header = self.table.horizontalHeader()
-        for col in range(4):
+        for col in range(6):
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
             
         layout.addWidget(self.table)
@@ -356,15 +369,27 @@ class MedicationHistoryDialog(QDialog):
         if not logs:
             self.table.setRowCount(1)
             self.table.setItem(0, 0, QTableWidgetItem("No records found for this period."))
-            self.table.setSpan(0, 0, 1, 4)
+            self.table.setSpan(0, 0, 1, 6)
             return
 
         # Populate the table with the fetched logs
         self.table.setRowCount(len(logs))
         for row_idx, row_data in enumerate(logs):
-            # row_data from get_medication_history is (med_name, dosage, date, time)
-            # Rearrange it slightly to match the table headers (Date, Time, Med, Dosage)
-            self.table.setItem(row_idx, 0, QTableWidgetItem(str(row_data[2]))) # Date
-            self.table.setItem(row_idx, 1, QTableWidgetItem(str(row_data[3]))) # Time
-            self.table.setItem(row_idx, 2, QTableWidgetItem(str(row_data[0]))) # Medication Name
-            self.table.setItem(row_idx, 3, QTableWidgetItem(str(row_data[1]))) # Dosage
+            self.table.setItem(row_idx, 0, QTableWidgetItem(str(row_data["date_taken"])))
+            self.table.setItem(row_idx, 1, QTableWidgetItem(str(row_data["time_taken"])))
+            self.table.setItem(row_idx, 2, QTableWidgetItem(str(row_data["medication_name"])))
+            self.table.setItem(row_idx, 3, QTableWidgetItem(str(row_data["dosage"])))
+            
+            # Extract notes safely
+            notes_str = str(row_data["notes"]) if row_data.get("notes") else ""
+            self.table.setItem(row_idx, 4, QTableWidgetItem(notes_str))
+            
+            # Highlight/flag missed doses in the history UI
+            status_val = row_data["status"]
+            status_text = "Taken" if status_val == 1 else "Missed"
+            item = QTableWidgetItem(status_text)
+            
+            if status_val == 0:
+                item.setForeground(QColor("#c0392b"))
+                
+            self.table.setItem(row_idx, 5, item)

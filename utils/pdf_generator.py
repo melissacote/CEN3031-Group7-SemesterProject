@@ -1,15 +1,30 @@
-# services/pdf_generator.py
+# utils/pdf_generator.py
 from xhtml2pdf import pisa
 from jinja2 import Template
 from datetime import datetime
-from services.reports import get_medication_history, get_patient_dob
+from services.reports import get_medication_history, get_patient_dob, get_report_date_range
+from services.medication import get_medications_for_management
 
-def generate_pdf_report(user_id, patient_name, start_date=None, end_date=None, output_path="Patient_Report.pdf"):
+def generate_pdf_report(user_id, patient_name, start_date=None, end_date=None, output_path="Patient_Report.pdf", report_type="Both (Medication List & Admin Record)"):
+    # Determine what sections to show based on the report_type
+    show_admin_record = "Administration Record" in report_type or "Both" in report_type
+    show_med_list = "Medication List" in report_type or "Both" in report_type
+
     # Fetch the data
-    logs, final_start, final_end = get_medication_history(user_id, start_date, end_date)
-    
-    # Format the data into a dictionary for the template
-    log_data = [{"medication_name": r[0], "dosage": r[1], "date_taken": r[2], "time_taken": r[3]} for r in logs]
+    # 1. Fetch Administration Logs
+    log_data = []
+    if show_admin_record:
+        # Note: logs is already a list of dictionaries from our updated reports.py
+        logs, final_start, final_end = get_medication_history(user_id, start_date, end_date)
+        log_data = logs
+    else:
+        # Get default date range for the header if we skipped fetching logs
+        final_start, final_end = get_report_date_range(start_date, end_date)
+
+    # 2. Fetch Active Medication List
+    active_meds = []
+    if show_med_list:
+        active_meds = get_medications_for_management(user_id)
 
     # Load the HTML template
     with open("templates/report_template.html", "r") as file:
@@ -24,7 +39,11 @@ def generate_pdf_report(user_id, patient_name, start_date=None, end_date=None, o
         start_date=final_start,
         end_date=final_end,
         generation_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        log_data=log_data
+        report_type=report_type,
+        show_admin_record=show_admin_record,
+        show_med_list=show_med_list,
+        log_data=log_data,
+        active_meds=active_meds
     )
     
     # Generate the PDF using xhtml2pdf
