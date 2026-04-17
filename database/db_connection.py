@@ -15,7 +15,6 @@ DB_NAME = os.path.join(BASE_DIR, 'medrec.db')
 def get_connection():
     return sqlite3.connect(DB_NAME)
 
-
 def create_tables(conn: sqlite3.Connection | None = None) -> None:
     """
     Create all required database tables if they do not already exist.
@@ -55,7 +54,8 @@ def create_tables(conn: sqlite3.Connection | None = None) -> None:
                 frequency TEXT NOT NULL,
                 scheduled_time TEXT,
                 prescriber TEXT,
-                special_instructions TEXT
+                special_instructions TEXT,
+                is_active INTEGER DEFAULT 1
             )
         '''
         cursor.execute(create_medications)

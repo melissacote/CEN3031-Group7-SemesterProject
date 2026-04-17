@@ -17,6 +17,32 @@ def add_medication(user_id, medication_name, dosage, route, frequency, scheduled
         ''', (user_id, medication_name, dosage, route, frequency, scheduled_time, prescriber, special_instructions))
         conn.commit()
 
+# ADDED: Issue #31 - Check for duplicate medication names
+def check_duplicate_medication(user_id, medication_name, conn: sqlite3.Connection | None = None) -> bool:
+    """Query database for matching active medication name to check for duplicates."""
+    if conn is None:
+        conn = get_connection()
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) FROM medications
+            WHERE user_id = ? AND LOWER(medication_name) = LOWER(?) AND is_active = 1
+        ''', (user_id, medication_name.strip()))
+        count = cursor.fetchone()[0]
+        return count > 0
+
+# ADDED: Helper to mark a medication inactive instead of permanently deleting
+def deactivate_medication(medication_id, conn: sqlite3.Connection | None = None):
+    """Mark a medication as inactive instead of deleting it."""
+    if conn is None:
+        conn = get_connection()
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE medications SET is_active = 0 WHERE medication_id = ?
+        ''', (medication_id,))
+        conn.commit()
+
 # ADDED BY NC: Implement query for medications to be administered on current date & chronological sorting
 def get_todays_medications_sorted(user_id, conn: sqlite3.Connection | None = None):
     date_today = datetime.now().strftime("%Y-%m-%d")
@@ -29,13 +55,16 @@ def get_todays_medications_sorted(user_id, conn: sqlite3.Connection | None = Non
         # LEFT JOIN the administration_log to see if a record exists for TODAY
         cursor.execute('''
             SELECT m.medication_id, m.medication_name, m.dosage, m.scheduled_time,
-                   CASE WHEN a.log_id IS NOT NULL THEN 1 ELSE 0 END as is_taken
+                   CASE WHEN a.log_id IS NOT NULL THEN 1 ELSE 0 END as is_taken,
+                   m.special_instructions,
+                   a.time_taken
             FROM medications m
             LEFT JOIN administration_log a 
                 ON m.medication_id = a.medication_id 
                 AND a.user_id = m.user_id 
                 AND a.date_taken = ?
-            WHERE m.user_id = ? 
+                AND a.status = 1
+            WHERE m.user_id = ? AND m.is_active = 1
             ORDER BY m.scheduled_time ASC
         ''', (date_today, user_id))
         
@@ -56,11 +85,11 @@ def get_user_medications(username: str, conn: sqlite3.Connection | None = None) 
         cursor.execute("""
             SELECT medication_name, dosage, frequency, scheduled_time
             FROM medications
-            WHERE user_id = ?
-            ORDER BY start_date DESC
+            WHERE user_id = ? AND is_active = 1
+            ORDER BY scheduled_time DESC
         """, (user_id,))
         rows = cursor.fetchall()
-        return [dict(zip(["name", "dosage", "frequency", "start_date", "notes"], row)) for row in rows]
+        return [dict(zip(["name", "dosage", "frequency", "scheduled_time"], row)) for row in rows]
     except Exception:
         return []
     finally:
@@ -76,7 +105,7 @@ def get_medications_for_management(user_id, conn: sqlite3.Connection | None = No
         cursor.execute('''
             SELECT medication_id, medication_name, dosage, route, frequency, scheduled_time, prescriber, special_instructions
             FROM medications
-            WHERE user_id = ?
+            WHERE user_id = ? AND is_active = 1
             ORDER BY LOWER(medication_name) ASC
         ''', (user_id,))
         rows = cursor.fetchall()

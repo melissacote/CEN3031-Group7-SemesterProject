@@ -182,16 +182,27 @@ class MainWindow(QMainWindow):
 
         # Table
         self.med_table = QTableWidget()
-        self.med_table.setColumnCount(6)
+        self.med_table.setColumnCount(6) # Dropped from 7 to 6
+        
+        # Updated to match the exact terminology used in manage_medication.py
         self.med_table.setHorizontalHeaderLabels(
-            ["Medication Name", "Dosage", "Route", "Frequency", "Scheduled Time", "Prescriber"]
+            ["Name", "Strength", "Directions", "Frequency", "Timing", "Notes"]
         )
         self.med_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.med_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.med_table.setAlternatingRowColors(True)
+        
+        # Apply the fix so wide columns stretch and short columns snap to contents
         header = self.med_table.horizontalHeader()
-        for col in range(6):
-            header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents) # Name
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents) # Strength
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)          # Directions
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents) # Frequency
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents) # Timing
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)          # Notes
+        
+        self.med_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+
         layout.addWidget(self.med_table)
 
         self._load_medications_into_table()
@@ -208,15 +219,23 @@ class MainWindow(QMainWindow):
             placeholder = QTableWidgetItem("No medications found.")
             placeholder.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.med_table.setItem(0, 0, placeholder)
-            self.med_table.setSpan(0, 0, 1, 6)
+            self.med_table.setSpan(0, 0, 1, 6) # Span 6 instead of 7
             self.statusBar().showMessage("No medications on record.")
             return
 
         self.med_table.setRowCount(len(meds))
-        columns = ["name", "dosage", "route", "frequency", "scheduled_time", "prescriber"]
+        
+        # Removed "prescriber" from the DB mapping list
+        columns = ["name", "dosage", "route", "frequency", "scheduled_time", "special_instructions"]
+        
         for row, med in enumerate(meds):
             for col, key in enumerate(columns):
                 value = med.get(key) or ""
+                
+                # Format the timing string nicely if it has commas
+                if key == "scheduled_time" and value:
+                    value = ", ".join(part.strip() for part in value.split(",") if part.strip())
+                    
                 self.med_table.setItem(row, col, QTableWidgetItem(str(value)))
 
         self.statusBar().showMessage(

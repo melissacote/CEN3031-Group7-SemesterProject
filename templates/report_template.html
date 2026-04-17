@@ -2,52 +2,112 @@
 <html>
 <head>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
-        h1 { text-align: center; color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }
-        .header-info { margin-bottom: 30px; font-size: 14pt; line-height: 1.6; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12pt; }
-        th, td { border: 1px solid #dddddd; text-align: left; padding: 12px; }
-        th { background-color: #f2f2f2; font-weight: bold; }
-        .footer { margin-top: 50px; font-size: 10pt; text-align: center; color: #777; }
+        /* Explicitly force US Letter Landscape dimensions */
+        @page {
+            size: 11in 8.5in; 
+            margin: 0.5in;
+        }
+        body { 
+            font-family: Helvetica, Arial, sans-serif; 
+            font-size: 10pt; 
+            color: #333333;
+        }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 10px; border-bottom: 2px solid #2c3e50; padding-bottom: 5px; }
+        h2 { color: #34495e; margin-top: 25px; font-size: 13pt; border-bottom: 1px solid #cccccc; padding-bottom: 3px; }
+        .info-block { margin-bottom: 20px; line-height: 1.5; font-size: 11pt; }
+        
+        /* Strict xhtml2pdf table formatting */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            -pdf-keep-with-next: true;
+        }
+        th, td {
+            padding: 8px; /* Increased padding for better readability */
+            border: 1px solid #999999;
+            vertical-align: top;
+        }
+        th {
+            background-color: #e3e3e3;
+            font-weight: bold;
+            text-align: left;
+        }
+        .footer { text-align: center; font-size: 8pt; color: #777777; margin-top: 40px; }
     </style>
 </head>
 <body>
     <h1>MedRec Patient Adherence Report</h1>
     
-    <div class="header-info">
-        <p><strong>Patient Name:</strong> {{ patient_name }}</p>
-        <p><strong>Date of Birth:</strong> {{ patient_dob }}</p>
-        <p><strong>Report Period:</strong> {{ start_date }} to {{ end_date }}</p>
-        <p><strong>Generated On:</strong> {{ generation_date }}</p>
+    <div class="info-block">
+        <strong>Patient Name:</strong> {{ patient_name }}<br>
+        <strong>Date of Birth:</strong> {{ patient_dob }}<br>
+        <strong>Report Type:</strong> {{ report_type }}<br>
+        <strong>Report Period:</strong> {{ start_date }} to {{ end_date }}<br>
+        <strong>Generated On:</strong> {{ generation_date }}
     </div>
 
+    {% if show_med_list %}
+    <h2>Current Active Medications</h2>
     <table>
         <thead>
             <tr>
-                <th>Date Taken</th>
-                <th>Time Taken</th>
-                <th>Medication</th>
-                <th>Dosage</th>
+                <th style="width: 25%;">Name</th>
+                <th style="width: 15%;">Strength</th>
+                <th style="width: 40%;">Directions</th>
+                <th style="width: 20%;">Frequency</th>
             </tr>
         </thead>
         <tbody>
-            {% for row in log_data %}
+            {% for med in active_meds %}
             <tr>
-                <td>{{ row.date_taken }}</td>
-                <td>{{ row.time_taken }}</td>
-                <td>{{ row.medication_name }}</td>
-                <td>{{ row.dosage }}</td>
+                <td>{{ med.name }}</td>
+                <td>{{ med.dosage }}</td>
+                <td>{{ med.route }}</td>
+                <td>{{ med.frequency }}</td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="4" style="text-align:center;">No medications recorded during this period.</td>
+                <td colspan="4" style="text-align:center;">No active medications found.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    {% endif %}
+
+    {% if show_admin_record %}
+    <h2>Administration Record</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 15%;">Date</th>
+                <th style="width: 15%;">Time</th>
+                <th style="width: 35%;">Medication</th>
+                <th style="width: 15%;">Dosage</th>
+                <th style="width: 20%;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in log_data %}
+            <tr style="{% if row.status == 0 %}background-color: #ffebee;{% endif %}">
+                <td>{{ row.date_taken }}</td>
+                <td>{{ row.time_taken }}</td>
+                <td>{{ row.medication_name }}</td>
+                <td>{{ row.dosage }}</td>
+                <td style="{% if row.status == 0 %}color: #c0392b; font-weight: bold;{% endif %}">
+                    {% if row.status == 0 %}Missed{% else %}Taken{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align:center;">No medications recorded during this period.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 
     <div class="footer">
-        <p>Confidential Medical Record - Generated by MedVision</p>
+        Confidential Medical Record - Generated by MedVision
     </div>
 </body>
 </html>
