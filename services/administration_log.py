@@ -14,10 +14,17 @@ def log_medication_taken(user_id, med_id, conn: sqlite3.Connection | None = None
         conn = get_connection()
     with conn:
         cursor = conn.cursor()
+        # Get the current med fields so we can preserve them on the administration log table for reporting
+        medication_name, dosage, route, frequency, special_instructions = cursor.execute('''
+            SELECT medication_name, dosage, route, frequency, special_instructions
+            FROM medications
+            WHERE medication_id = ?
+            ''', (med_id,)).fetchone()
+
         cursor.execute('''
-            INSERT INTO administration_log (user_id, medication_id, date_taken, time_taken, status, notes) 
-            VALUES (?, ?, ?, ?, 1, '')
-        ''', (user_id, med_id, date_taken, time_taken))
+            INSERT INTO administration_log (user_id, medication_id, medication_name, dosage, route, frequency, special_instructions, date_taken, time_taken, status, notes) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, '')
+        ''', (user_id, med_id, medication_name, dosage, route, frequency, special_instructions, date_taken, time_taken))
         conn.commit()
 
 # ADDED BY NC: Undo marking a medication as taken

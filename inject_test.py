@@ -8,8 +8,8 @@ try:
     # Use user_id as the column name, and 1 as the value for the test patient
     cursor.execute('''
         INSERT INTO administration_log 
-        (user_id, medication_id, date_taken, time_taken, status, notes) 
-        VALUES (1, 1, '2026-04-16', 'Morning', 0, 'Missed dose test')
+        (user_id, medication_id, medication_name, dosage, route, frequency, special_instructions, date_taken, time_taken, status, notes) 
+        VALUES (1, 1, 'Test Med', '100mg', 'oral', 'Once daily', '', '2026-04-16', 'Morning', 0, 'Missed dose test')
     ''')
     conn.commit()
     print("✅ Successfully injected missed dose into the database!")
