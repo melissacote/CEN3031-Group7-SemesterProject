@@ -8,10 +8,11 @@ Displays menu bar, toolbar, quick action buttons, and interactive matplotlib cha
 import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFrame, QLabel,
-    QToolBar, QMenuBar, QMenu, QMessageBox, QPushButton, QApplication,
-    QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog, QScrollArea
+    QToolBar, QMenuBar, QMenu, QMessageBox, QPushButton, QApplication, QSizePolicy,
+    QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog, QScrollArea,
+    QSystemTrayIcon
 )
-from PyQt6.QtGui import QAction, QFont
+from PyQt6.QtGui import QAction, QFont, QIcon, QPixmap, QColor, QPainter
 from PyQt6.QtCore import Qt, QSize
 from services.medication import get_user_medications, get_medications_for_management
 from services.user import get_user_id, get_user_profile
@@ -51,6 +52,7 @@ class MainWindow(QMainWindow):
         # self.setup_menu_bar()
         self.setup_toolbar()
         self.setup_central_widget()
+        self._setup_tray()
 
     def setup_menu_bar(self) -> None:
         """Menu bar with File / Options / Tools (unchanged)."""
@@ -72,16 +74,92 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(QAction("Export Report", self))
 
     def setup_toolbar(self) -> None:
-        """Toolbar with accessibility toggle."""
+        """Toolbar with accessibility toggle and logout button."""
         toolbar = QToolBar("Main Toolbar")
         toolbar.setIconSize(QSize(26, 26))
+        toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
-        # Accesbility Toggle
+        # Accessibility Toggle
         self.access_act = QAction("👓 Large Print", self)
-        self.access_act.setCheckable(True)  # Makes it act like an on/off switch
+        self.access_act.setCheckable(True)
         self.access_act.triggered.connect(self.toggle_accessibility_font)
         toolbar.addAction(self.access_act)
+
+        # Spacer to push logout to the right
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
+
+        # Logout button
+        logout_act = QAction("🚪 Logout", self)
+        logout_act.setToolTip("Exit the application")
+        logout_act.triggered.connect(self.logout)
+        toolbar.addAction(logout_act)
+
+    # ==================== TRAY & WINDOW LIFECYCLE ====================
+
+    def _create_app_icon(self) -> QIcon:
+        """Draw a green circle with a white medical cross for the tray icon."""
+
+        # This can be replaced with a default Qstyle icon if preferred.
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QColor("#27ae60"))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(1, 1, 30, 30)
+        painter.setBrush(QColor("white"))
+        painter.drawRect(13, 7, 6, 18)   # vertical bar
+        painter.drawRect(7, 13, 18, 6)   # horizontal bar
+        painter.end()
+        return QIcon(pixmap)
+
+    def _setup_tray(self) -> None:
+        """Create system tray icon with context menu."""
+        self.tray = QSystemTrayIcon(self._create_app_icon(), self)
+        self.tray.setToolTip(f"MedRec — logged in as {self.current_user}")
+
+        tray_menu = QMenu()
+        open_action = tray_menu.addAction("Open MedRec")
+        open_action.triggered.connect(self._restore_window)
+        tray_menu.addSeparator()
+        quit_action = tray_menu.addAction("Quit")
+        quit_action.triggered.connect(self.logout)
+
+        self.tray.setContextMenu(tray_menu)
+        self.tray.activated.connect(self._on_tray_activated)
+        self.tray.show()
+
+    def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        """Restore the window when the tray icon is clicked."""
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            self._restore_window()
+
+    def _restore_window(self) -> None:
+        """Bring the main window back to the foreground."""
+        self.showNormal()
+        self.activateWindow()
+        self.raise_()
+
+    def closeEvent(self, event) -> None:
+        """Hide to tray instead of closing; only logout fully quits."""
+        event.ignore()
+        self.hide()
+        self.tray.showMessage(
+            "MedRec",
+            "MedRec is still running. Click the tray icon to reopen.",
+            QSystemTrayIcon.MessageIcon.Information,
+            2500
+        )
+
+    def logout(self) -> None:
+        """Quit the application entirely."""
+        self.tray.hide()
+        QApplication.instance().quit()
+
+    # ==================== NAVIGATION ====================
 
     def launch_dosage_tracker(self, user_id):
         # Pass the setup_central_widget function so the tracking screen can return to the dashboard

@@ -67,7 +67,13 @@ class LoginWindow(QWidget):
                           font-size: 16px; border-radius: 8px; font-weight: bold; }
             QPushButton:hover { background-color: #2ecc71; }
         """)
+
+        # User clicks login button event
         login_btn.clicked.connect(self.handle_login)
+
+        # User hits enter in login window event
+        self.username_input.returnPressed.connect(self.handle_login)
+        self.password_input.returnPressed.connect(self.handle_login)
 
         create_btn = QPushButton("Create New Account")
         create_btn.setFixedHeight(50)

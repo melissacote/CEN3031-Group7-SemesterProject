@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     # Instantiate application using the given arguments
     app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(True) # Ensure OS kills the process on exit
+    app.setQuitOnLastWindowClosed(False) # Tray mode: only logout button fully quits
     
     # Initialize SQLite database and seed FDA data FIRST
     run_startup_checks()
@@ -69,9 +69,6 @@ if __name__ == "__main__":
 
     # Display the UI window
     login_window.show()
-
-    # the application forces all children to die.
-    app.aboutToQuit.connect(login_window.close)
 
     # Quit code execution upon exit.
     sys.exit(app.exec())
