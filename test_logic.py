@@ -33,7 +33,7 @@ print("\nFetching today's medications (Should be sorted chronologically):")
 results = get_todays_medications_sorted(test_user_id)
 
 for med in results:
-    med_id, name, dosage, time, is_taken = med
+    med_id, name, dosage, time, is_taken, special_instructions, time_taken = med
     if is_taken == 1:
         print(f"Time: {time} | Medication: {name} ({dosage}) ✅")
     else:
