@@ -38,15 +38,17 @@ A desktop medication management application built with PyQt6. MedRec allows pati
 
 ## Architecture
 
-MedRec follows a three-layer architecture with strict separation between data access, business logic, and presentation.
+MedRec follows a four-layer architecture that runs top-down in one direction: Presentation -> Application -> Business Logic -> Data Access.
 
 ```
 ┌─────────────────────────────────────┐
-│              UI Layer               │  PyQt6 windows and dialogs
+│         Presentation Layer          │  User Interface including PyQt6 windows and dialogs
 ├─────────────────────────────────────┤
-│           Services Layer            │  Business logic, OCR engine, reports
+│         Application Layer           │  Application services such as OCR engine, image processing, PDF generation, and password hashing
 ├─────────────────────────────────────┤
-│          Database Layer             │  SQLite via db_connection.py
+│        Business Logic Layer         │  Functions for services such as medication list, administration logging, and user information
+├─────────────────────────────────────┤
+│         Data Access Layer           │  Database communication and table creation (SQLite via db_connection.py)
 └─────────────────────────────────────┘
 ```
 
@@ -64,6 +66,8 @@ MedRec/
 ├── main.py                        # Entry point — DB init, FDA seed check, app launch
 ├── config.json                    # Webcam preferences (auto-generated on first settings save)
 ├── requirements.txt               # Python dependencies
+├── test_logic.py                  # Manual logic check script for user setup and medication sorting/tracker behavior
+├── verify_db.py                   # Manual logic check script to check administration_log rows
 │
 ├── database/
 │   └── db_connection.py           # SQLite connection, table creation
@@ -128,7 +132,7 @@ MedRec uses a local SQLite database (`medrec.db`) created automatically on first
 ### `medications`
 | Column | Type | Notes |
 |---|---|---|
-| `medication_id` | INTEGER PK | Auto-increment |
+| `medication_id` | INTEGER PK | ID assigned on insert |
 | `user_id` | INTEGER FK | References `users.user_id` |
 | `medication_name` | TEXT | Required |
 | `dosage` | TEXT | e.g. `50mg` (displayed as "Strength" in UI) |
@@ -137,16 +141,17 @@ MedRec uses a local SQLite database (`medrec.db`) created automatically on first
 | `scheduled_time` | TEXT | Comma-separated timing buckets: `Morning,Evening` |
 | `prescriber` | TEXT | Optional |
 | `special_instructions` | TEXT | Optional |
+| `is_active` | INTEGER | Soft-delete flag (`1` = active, `0` = inactive)
 
 ### `administration_log`
 | Column | Type | Notes |
 |---|---|---|
-| `log_id` | INTEGER PK | Auto-increment |
+| `log_id` | INTEGER PK | ID assigned on insert |
 | `user_id` | INTEGER FK | References `users.user_id` |
 | `medication_id` | INTEGER FK | References `medications.medication_id` |
 | `date_taken` | TEXT | YYYY-MM-DD |
 | `time_taken` | TEXT | HH:MM:SS |
-| `status` | INTEGER | `1` = taken |
+| `status` | INTEGER | `1` = taken, `0` = missed|
 | `notes` | TEXT | Optional |
 
 ### `fda_medications`

@@ -78,6 +78,7 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar("Main Toolbar")
         toolbar.setIconSize(QSize(26, 26))
         toolbar.setMovable(False)
+        toolbar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         self.addToolBar(toolbar)
 
         # Accessibility Toggle
@@ -92,7 +93,7 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(spacer)
 
         # Logout button
-        logout_act = QAction("🚪 Logout", self)
+        logout_act = QAction("🚪 Exit", self)
         logout_act.setToolTip("Exit the application")
         logout_act.triggered.connect(self.logout)
         toolbar.addAction(logout_act)
