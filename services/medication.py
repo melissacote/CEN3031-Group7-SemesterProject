@@ -111,7 +111,7 @@ def get_medications_for_management(user_id, conn: sqlite3.Connection | None = No
         rows = cursor.fetchall()
         return [dict(zip(["medication_id", "name", "dosage", "route", "frequency", "scheduled_time", "prescriber", "special_instructions"], row)) for row in rows]
 
-def update_medication(medication_id, medication_name, dosage, route, frequency, scheduled_time, conn: sqlite3.Connection | None = None):
+def update_medication(medication_id, medication_name, dosage, route, frequency, scheduled_time, special_instructions, conn: sqlite3.Connection | None = None):
     """
     Update an exisitng medication record.
 
@@ -123,7 +123,7 @@ def update_medication(medication_id, medication_name, dosage, route, frequency, 
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE medications
-            SET medication_name=?, dosage=?, route=?, frequency=?, scheduled_time=?
+            SET medication_name=?, dosage=?, route=?, frequency=?, scheduled_time=?, special_instructions=?
             WHERE medication_id=?
-        ''', (medication_name, dosage, route, frequency, scheduled_time, medication_id))
+        ''', (medication_name, dosage, route, frequency, scheduled_time, special_instructions, medication_id))
         conn.commit()

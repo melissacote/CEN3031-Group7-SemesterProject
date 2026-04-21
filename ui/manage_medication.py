@@ -292,7 +292,7 @@ class ManageMedicationScreen(QWidget):
         # If in editing mode update the selected medication
         else:
             update_medication(
-                self.editing_medication_id, medication_name, strength, directions, frequency, timing
+                self.editing_medication_id, medication_name, strength, directions, frequency, timing, notes
             )
         
             self.editing_medication_id = None
