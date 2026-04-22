@@ -76,7 +76,7 @@ def test_log_entry_not_overwritten_when_medication_changes(test_db):
     add_medication(test_id, 'Vitamin C', '500 mg', 'oral', 'daily', '08:00', conn = test_db)
     log_medication_taken(test_id, 1, conn = test_db)
 
-    update_medication(1, 'Vitamin C', '1000 mg', 'oral', 'daily', '08:00', conn = test_db)
+    update_medication(1, 'Vitamin C', '1000 mg', 'oral', 'daily', '08:00', special_instructions='', conn = test_db)
 
     logs, start_date, end_date = get_medication_history(test_id, conn = test_db)
     assert logs[0]['dosage'] == '500 mg'
