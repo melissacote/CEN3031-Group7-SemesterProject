@@ -55,7 +55,11 @@ def create_tables(conn: sqlite3.Connection | None = None) -> None:
                 scheduled_time TEXT,
                 prescriber TEXT,
                 special_instructions TEXT,
-                is_active INTEGER DEFAULT 1
+                is_active INTEGER DEFAULT 1,
+                start_date TEXT,
+                end_date TEXT,
+                frequency_interval INTEGER DEFAULT 1,
+                doses_per_day INTEGER DEFAULT 1
             )
         '''
         cursor.execute(create_medications)
@@ -67,6 +71,11 @@ def create_tables(conn: sqlite3.Connection | None = None) -> None:
                 log_id INTEGER NOT NULL PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(user_id),
                 medication_id INTEGER NOT NULL REFERENCES medications(medication_id),
+                medication_name TEXT,
+                dosage TEXT,
+                route TEXT,
+                frequency TEXT,
+                special_instructions TEXT,
                 date_taken TEXT NOT NULL,
                 time_taken TEXT NOT NULL,
                 status INTEGER NOT NULL,
