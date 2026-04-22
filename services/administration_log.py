@@ -5,10 +5,12 @@ from datetime import datetime
 from database.db_connection import get_connection
 
 # ADDED BY NC: Log when a medication is taken
-def log_medication_taken(user_id, med_id, conn: sqlite3.Connection | None = None):
-    # Get current date and time
-    date_taken = datetime.now().strftime("%Y-%m-%d")
-    time_taken = datetime.now().strftime("%H:%M:%S")
+def log_medication_taken(user_id, med_id, date_taken=None, time_taken=None, conn: sqlite3.Connection | None = None):
+    # Get current date and time if no datetime provided
+    if date_taken is None:
+        date_taken = datetime.now().strftime("%Y-%m-%d")
+    if time_taken is None:
+        time_taken = datetime.now().strftime("%H:%M:%S")
 
     if conn is None:
         conn = get_connection()
