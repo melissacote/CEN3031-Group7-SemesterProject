@@ -24,13 +24,15 @@ A desktop medication management application built with PyQt6. MedRec allows pati
 
 | Feature | Description |
 |---|---|
-| **Secure Authentication** | User registration and login with Argon2id password hashing |
-| **Medication Management** | Add, edit, and organize medications with name, strength, directions, frequency, and timing |
-| **OCR Label Scanner** | Webcam-based prescription label scanning powered by PaddleOCR with live focus detection |
-| **Daily Dosage Tracker** | Mark medications as taken, undo entries, and view today's schedule in chronological order |
+| **Secure Authentication** | User registration and login with Argon2id password hashing; Enter key submits the login form |
+| **Medication Management** | Add, edit, and soft-delete medications with name, strength, directions, notes, and timing; duplicate detection warns before saving |
+| **Custom Frequency & Duration** | Set any schedule — daily, every N days, every N weeks, or multiple doses per day — with an optional start and end date per medication course |
+| **OCR Label Scanner** | Webcam-based prescription label scanning powered by PaddleOCR with live focus detection and automatic form population |
+| **Smart Daily Dosage Tracker** | Displays only the medications due on the current date based on each medication's interval and course window; tracks individual dose counts for multi-dose schedules |
 | **PDF Reports** | Generate professional medication adherence reports over custom date ranges |
 | **History Log** | Browse past administration records filtered by date range |
-| **System Tray** | Minimize to the Windows system tray; the application continues running in the background |
+| **System Tray** | Closing the window minimizes to the Windows system tray; the application keeps running in the background and can be restored by clicking the tray icon |
+| **Logout** | The toolbar logout button is the only way to fully exit the application |
 | **Accessibility** | One-click large print mode scales all UI text to 18pt |
 | **Camera Settings** | Configure webcam resolution, frame rate, and autofocus preference |
 
@@ -137,11 +139,15 @@ MedRec uses a local SQLite database (`medrec.db`) created automatically on first
 | `medication_name` | TEXT | Required |
 | `dosage` | TEXT | e.g. `50mg` (displayed as "Strength" in UI) |
 | `route` | TEXT | e.g. `Oral` (displayed as "Directions" in UI) |
-| `frequency` | TEXT | e.g. `Twice daily` |
+| `frequency` | TEXT | Human-readable label e.g. `Twice every 5 days` (auto-generated from interval + doses) |
 | `scheduled_time` | TEXT | Comma-separated timing buckets: `Morning,Evening` |
 | `prescriber` | TEXT | Optional |
-| `special_instructions` | TEXT | Optional |
-| `is_active` | INTEGER | Soft-delete flag (`1` = active, `0` = inactive)
+| `special_instructions` | TEXT | Optional (displayed as "Notes" in UI) |
+| `is_active` | INTEGER | Soft-delete flag (`1` = active, `0` = inactive) |
+| `start_date` | TEXT | YYYY-MM-DD; first day of the medication course |
+| `end_date` | TEXT | YYYY-MM-DD; last day of the course, or `NULL` for ongoing |
+| `frequency_interval` | INTEGER | Days between dose days (e.g. `1` = daily, `5` = every 5 days, `7` = weekly) |
+| `doses_per_day` | INTEGER | How many times to take the medication on each dose day (e.g. `2` = twice daily) |
 
 ### `administration_log`
 | Column | Type | Notes |
@@ -149,10 +155,15 @@ MedRec uses a local SQLite database (`medrec.db`) created automatically on first
 | `log_id` | INTEGER PK | ID assigned on insert |
 | `user_id` | INTEGER FK | References `users.user_id` |
 | `medication_id` | INTEGER FK | References `medications.medication_id` |
+| `medication_name` | TEXT | Snapshot of the name at log time (preserves history if medication is later edited) |
+| `dosage` | TEXT | Snapshot of dosage at log time |
+| `route` | TEXT | Snapshot of route at log time |
+| `frequency` | TEXT | Snapshot of frequency label at log time |
+| `special_instructions` | TEXT | Snapshot of notes at log time |
 | `date_taken` | TEXT | YYYY-MM-DD |
 | `time_taken` | TEXT | HH:MM:SS |
-| `status` | INTEGER | `1` = taken, `0` = missed|
-| `notes` | TEXT | Optional |
+| `status` | INTEGER | `1` = taken |
+| `notes` | TEXT | Optional patient note added at log time |
 
 ### `fda_medications`
 | Column | Type | Notes |
