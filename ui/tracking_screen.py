@@ -8,25 +8,19 @@ from services.medication import get_todays_medications_sorted
 from services.administration_log import log_medication_taken, undo_medication_taken
 
 
-# Added by NC: This is the UI screen for tracking today's dosages. It will call the query to load the medications from
-# the database and display them in a list. The "Mark as Taken" button is just a placeholder to show how you can interact
-# with the selected medication item and its associated database ID.
-
 class DosageTrackingScreen(QWidget):
     """
-    Class object for the dosage tracking screen.
+    Daily dosage tracker.
 
-    Params
-    ------
-        QWidget (type): Qt widget
+    Displays only the medications due on today's date, respecting each
+    medication's frequency interval (daily, every N days, weekly, etc.)
+    and course duration (start / end dates).
 
-    Returns
-    -------
-        None
+    Multi-dose medications (e.g. twice daily) show a "X/Y doses" counter
+    and allow the patient to log each individual dose separately.
     """
 
     def __init__(self, user_id, go_back_callback=None):
-        # Call init function of parent class
         super().__init__()
 
         self.user_id = user_id
@@ -38,39 +32,41 @@ class DosageTrackingScreen(QWidget):
 
         self.back_btn = QPushButton("← Back to Dashboard")
         self.back_btn.setMinimumHeight(40)
-        self.back_btn.setStyleSheet("background-color: #7f8c8d; color: white; border-radius: 5px; font-weight: bold;")
+        self.back_btn.setStyleSheet(
+            "background-color: #7f8c8d; color: white; border-radius: 5px; font-weight: bold;"
+        )
         self.back_btn.clicked.connect(self.handle_back)
         self.layout.addWidget(self.back_btn)
 
-        # Show current date to assure user that the tracking resets daily
         today_str = datetime.now().strftime("%A, %B %d, %Y")
-        self.title_label = QLabel(f"Today's Dosage Tracker - {today_str}")
+        self.title_label = QLabel(f"Today's Dosage Tracker — {today_str}")
         self.title_label.setFont(QFont("Arial", 20, QFont.Weight.Bold))
+        self.layout.addWidget(self.title_label)
 
         self.tracking_list = QListWidget()
 
         self.mark_taken_btn = QPushButton("Mark Selected as Taken")
         self.mark_taken_btn.setMinimumHeight(50)
-        self.mark_taken_btn.setStyleSheet("background-color: #005A9C; color: white; border-radius: 5px;")
-
-        # Connect the button click to a test popup
+        self.mark_taken_btn.setStyleSheet(
+            "background-color: #005A9C; color: white; border-radius: 5px;"
+        )
         self.mark_taken_btn.clicked.connect(self.mark_as_taken)
+
         self.undo_btn = QPushButton("Undo (Mark as Untaken)")
         self.undo_btn.setMinimumHeight(50)
-        self.undo_btn.setStyleSheet("background-color: #FF9800; color: white; border-radius: 5px;")
+        self.undo_btn.setStyleSheet(
+            "background-color: #FF9800; color: white; border-radius: 5px;"
+        )
         self.undo_btn.clicked.connect(self.undo_taken)
 
-        self.layout.addWidget(self.title_label)
         self.layout.addWidget(self.tracking_list)
         self.layout.addWidget(self.mark_taken_btn)
         self.layout.addWidget(self.undo_btn)
 
         self.setLayout(self.layout)
-
         self.load_medications()
-    
+
     def handle_back(self):
-        # Triggers the callback to return to the main dashboard.
         if self.go_back_callback:
             self.go_back_callback()
 
@@ -84,53 +80,64 @@ class DosageTrackingScreen(QWidget):
             return
 
         for med in meds:
-            # Unpack the returned row including notes and timestamp
-            med_id, name, dosage, time, is_taken, notes, time_taken = med
-            
-            # Format notes if they exist
-            notes_display = f" | Notes: {notes}" if notes else ""
+            med_id, name, dosage, scheduled_time, doses_per_day, times_taken, notes = med
 
-            # The UI accurately reflects the database state
-            if is_taken == 1:
-                # Actually tracks and displays the real time it was consumed
-                display_text = f"{time} - {name} ({dosage}){notes_display} ✅ (Taken at {time_taken})"
+            notes_display = f" | {notes}" if notes else ""
+            all_taken = times_taken >= doses_per_day
+            dose_counter = f" [{times_taken}/{doses_per_day} doses]" if doses_per_day > 1 else ""
+
+            if all_taken:
+                display_text = (
+                    f"{scheduled_time} — {name} ({dosage}){notes_display}{dose_counter} ✅"
+                )
             else:
-                display_text = f"{time} - {name} ({dosage}){notes_display}"
+                display_text = (
+                    f"{scheduled_time} — {name} ({dosage}){notes_display}{dose_counter}"
+                )
 
-            # Add it to the visual UI list
             self.tracking_list.addItem(display_text)
 
-            # Secretly store the database ID inside the UI item so the "Mark Taken" button knows which one is clicked
-            self.tracking_list.item(self.tracking_list.count() - 1).setData(32, med_id)
+            # Store scheduling data so the action buttons know what to act on
+            self.tracking_list.item(self.tracking_list.count() - 1).setData(
+                32,
+                {
+                    "med_id":        med_id,
+                    "doses_per_day": doses_per_day,
+                    "times_taken":   times_taken,
+                },
+            )
 
     def mark_as_taken(self):
         selected_item = self.tracking_list.currentItem()
-        if selected_item:
-            if "✅" in selected_item.text():
-                QMessageBox.information(self, "Already Taken", "This medication is already marked as taken.")
-                return
+        if not selected_item:
+            QMessageBox.warning(self, "Selection Error",
+                                "Please click a medication first.")
+            return
 
-            med_id = selected_item.data(32)
-            log_medication_taken(self.user_id, med_id)
+        data = selected_item.data(32)
+        if data["times_taken"] >= data["doses_per_day"]:
+            label = "dose" if data["doses_per_day"] == 1 else "all doses"
+            QMessageBox.information(self, "Already Taken",
+                                    f"You have already logged {label} for today.")
+            return
 
-            # True Database Synchronization
-            # Instead of manually hacking the text, force the UI to reload fresh from the database
-            self.load_medications() 
-            QMessageBox.information(self, "Success", "Medication logged successfully.")
-        else:
-            QMessageBox.warning(self, "Selection Error", "Please click a medication first.")
+        log_medication_taken(self.user_id, data["med_id"])
+        self.load_medications()
+        QMessageBox.information(self, "Success", "Dose logged successfully.")
 
     def undo_taken(self):
         selected_item = self.tracking_list.currentItem()
-        if selected_item:
-            med_id = selected_item.data(32)
-            success = undo_medication_taken(self.user_id, med_id)
+        if not selected_item:
+            QMessageBox.warning(self, "Selection Error",
+                                "Please click a medication first.")
+            return
 
-            if success:
-                # True Database Synchronization
-                self.load_medications() # Refresh UI from database
-                QMessageBox.information(self, "Undo Success", "Medication administration undone.")
-            else:
-                QMessageBox.warning(self, "Undo Failed", "No record found to undo for today.")
+        data = selected_item.data(32)
+        success = undo_medication_taken(self.user_id, data["med_id"])
+
+        if success:
+            self.load_medications()
+            QMessageBox.information(self, "Undo Success", "Last dose entry removed.")
         else:
-            QMessageBox.warning(self, "Selection Error", "Please click a medication first.")
+            QMessageBox.warning(self, "Undo Failed",
+                                "No dose record found to undo for today.")

@@ -15,6 +15,23 @@ DB_NAME = os.path.join(BASE_DIR, 'medrec.db')
 def get_connection():
     return sqlite3.connect(DB_NAME)
 
+
+def _migrate_medications_table(cursor: sqlite3.Cursor) -> None:
+    """Add scheduling columns to existing databases that predate this schema version."""
+    new_columns = [
+        ("start_date",          "TEXT"),
+        ("end_date",            "TEXT"),
+        ("frequency_interval",  "INTEGER DEFAULT 1"),
+        ("doses_per_day",       "INTEGER DEFAULT 1"),
+        ("is_active",           "INTEGER DEFAULT 1"),
+    ]
+    for col, definition in new_columns:
+        try:
+            cursor.execute(f"ALTER TABLE medications ADD COLUMN {col} {definition}")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
+
 def create_tables(conn: sqlite3.Connection | None = None) -> None:
     """
     Create all required database tables if they do not already exist.
@@ -55,10 +72,15 @@ def create_tables(conn: sqlite3.Connection | None = None) -> None:
                 scheduled_time TEXT,
                 prescriber TEXT,
                 special_instructions TEXT,
-                is_active INTEGER DEFAULT 1
+                is_active INTEGER DEFAULT 1,
+                start_date TEXT,
+                end_date TEXT,
+                frequency_interval INTEGER DEFAULT 1,
+                doses_per_day INTEGER DEFAULT 1
             )
         '''
         cursor.execute(create_medications)
+        _migrate_medications_table(cursor)
 
         # Create administration log table with all metadata information fields
         create_administration_log = '''
