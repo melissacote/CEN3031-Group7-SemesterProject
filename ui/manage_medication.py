@@ -23,7 +23,6 @@ _OCR_FREQ_TO_SCHEDULE = {
     "Twice daily":        (1,  2),
     "Three times daily":  (1,  3),
     "Four times daily":   (1,  4),
-    "Every other day":    (2,  1),
     "Weekly":             (7,  1),
     "Once weekly":        (7,  1),
     "Every other day":    (2,  1),
@@ -120,7 +119,7 @@ class ManageMedicationScreen(QWidget):
         self.form.addRow("Directions:", self.input_directions)
         self.form.addRow("Notes:", self.input_notes)
 
-        # ── Frequency row: "Every [N] [day(s)/week(s)], [N] time(s) per dose day" ──
+        # ── Frequency row: "Every [N] [day(s)/week(s)], [N] time(s) per day" ──
         freq_row = QHBoxLayout()
         freq_row.setSpacing(6)
 
@@ -145,7 +144,7 @@ class ManageMedicationScreen(QWidget):
         self.input_doses_per_day.setFixedWidth(55)
         freq_row.addWidget(self.input_doses_per_day)
 
-        freq_row.addWidget(QLabel("time(s) per dose day"))
+        freq_row.addWidget(QLabel("time(s) per day"))
         freq_row.addStretch()
 
         self.form.addRow("Frequency:", freq_row)
