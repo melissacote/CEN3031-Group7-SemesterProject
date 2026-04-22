@@ -372,7 +372,7 @@ class ManageMedicationScreen(QWidget):
             update_medication(
                 self.editing_medication_id,
                 medication_name, strength, directions,
-                frequency_label, timing,
+                frequency_label, timing, notes,
                 start_date=start_date,
                 end_date=end_date,
                 frequency_interval=interval_days,

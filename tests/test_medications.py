@@ -111,13 +111,13 @@ def test_update_medication(test_db):
         'password': 'TestPass123',
         'first_name': 'Magi',
         'last_name': 'Karp',
-        'date_of_birth': '1985-11-03'
+        'date_of_birth': '1985-11-03',
     }
     test_username = user_data['username']
     create_new_user(user_data, conn = test_db)
     test_id = get_user_id(test_username, conn = test_db)
-    add_medication(test_id, "Lisinopril", "10 mg", "Oral", "Once Daily", "09:00 AM", conn = test_db)
-    add_medication(test_id, "Aspirin", "81 mg", "Oral", "Once Daily", "08:00 AM", conn = test_db)
+    add_medication(test_id, "Lisinopril", "10 mg", "Oral", "Once Daily", "09:00 AM", special_instructions="take daily bp", conn = test_db)
+    add_medication(test_id, "Aspirin", "81 mg", "Oral", "Once Daily", "08:00 AM", special_instructions="take with full glass of water", conn = test_db)
 
     # User's medications before update
     before = get_medications_for_management(test_id, conn = test_db)
@@ -126,13 +126,44 @@ def test_update_medication(test_db):
     med_id = before[0]['medication_id']
 
     # Edit Aspirin info and check for successful update
-    update_medication(med_id, "Aspirin Low Dose", "81 mg chewable", "Oral with food", "Twice daily", "Morning,Evening", conn = test_db)
+    update_medication(med_id, "Aspirin Low Dose", "81 mg chewable", "Oral with food", "Twice daily", "Morning,Evening", special_instructions="take with food", conn = test_db)
     after = get_medications_for_management(test_id, conn = test_db)
     assert after[0]['name'] == 'Aspirin Low Dose'
     assert after[0]['dosage'] == '81 mg chewable'
     assert after[0]['route'] == 'Oral with food'
     assert after[0]['frequency'] == 'Twice daily'
     assert after[0]['scheduled_time'] == 'Morning,Evening'
+    assert after[0]['special_instructions'] == 'take with food'
+
+def test_update_medication_special_instructions_empty(test_db):
+    user_data = {
+        'username': 'testuser',
+        'password': 'TestPass123',
+        'first_name': 'Vulpix',
+        'last_name': 'Alolan',
+        'date_of_birth': '1985-11-03',
+    }
+    test_username = user_data['username']
+    create_new_user(user_data, conn = test_db)
+    test_id = get_user_id(test_username, conn = test_db)
+    add_medication(test_id, "Lisinopril", "10 mg", "Oral", "Once Daily", "09:00 AM", special_instructions="take daily bp", conn = test_db)
+    add_medication(test_id, "Aspirin", "81 mg", "Oral", "Once Daily", "08:00 AM", special_instructions="take with full glass of water", conn = test_db)
+
+    # User's medications before update
+    before = get_medications_for_management(test_id, conn = test_db)
+    assert len(before) == 2
+    assert before[0]['name'] == 'Aspirin'
+    med_id = before[0]['medication_id']
+
+    # Edit Aspirin info and check for successful update
+    update_medication(med_id, "Aspirin Low Dose", "81 mg chewable", "Oral with food", "Twice daily", "Morning,Evening", special_instructions="", conn = test_db)
+    after = get_medications_for_management(test_id, conn = test_db)
+    assert after[0]['name'] == 'Aspirin Low Dose'
+    assert after[0]['dosage'] == '81 mg chewable'
+    assert after[0]['route'] == 'Oral with food'
+    assert after[0]['frequency'] == 'Twice daily'
+    assert after[0]['scheduled_time'] == 'Morning,Evening'
+    assert after[0]['special_instructions'] == ''
 
 def test_check_duplicate_medication(test_db):
     """Test that the duplicate checker accurately identifies active matching names."""
